@@ -1,9 +1,9 @@
 #pragma once
-#include "solver.h"
+#include "Solver.h"
 
 //runtime exception
 class AnalyticalSolverException : Exception
-{ 
+{
 public:
 	AnalyticalSolverException(string text) : Exception(text){
 	}
@@ -20,7 +20,7 @@ public:
 
 	virtual void GetStageSamples(vector<unsigned int> &stage_samples);
 
-protected:	
+protected:
 	//generate GAMS scripts
 	string SetsGams();
 	string ParametersGams();
