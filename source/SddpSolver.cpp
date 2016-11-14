@@ -371,7 +371,7 @@ void SddpSolver::Solve(arma::mat &weights, double &lower_bound_exact, double &up
 #endif
 }
 
-void SddpSolver::EvaluatePolicy(boost::function<vector<vector<double>>(vector<const double *>)> policy, double &return_mean, double &return_upper_bound, unsigned int iterations) {
+void SddpSolver::EvaluatePolicy(boost::function<vector<vector<double> >(vector<const double *>)> policy, double &return_mean, double &return_upper_bound, unsigned int iterations) {
 	vector<double> upper_bounds;
 	double upper_bound;
 	vector<SCENINDEX> forward_nodes;
@@ -405,7 +405,7 @@ void SddpSolver::EvaluatePolicy(boost::function<vector<vector<double>>(vector<co
 				--index;
 				node = node->parent;
 			}
-			vector<vector<double>> solutions = policy(scenario);
+			vector<vector<double> > solutions = policy(scenario);
 			node = base_node;
 			index = model_->GetStagesCount() - 1;
 			while(node != 0) {
@@ -454,7 +454,7 @@ void SddpSolver::EvaluatePolicy(boost::function<vector<vector<double>>(vector<co
 	return_upper_bound = margin;
 }
 
-vector<vector<double>> SddpSolver::GetPolicy(vector<const double *> scenario) {
+vector<vector<double> > SddpSolver::GetPolicy(vector<const double *> scenario) {
 	//build a single path tree
 	unsigned int assets = model_->GetAssetsCount();
 	unsigned int stages = model_->GetStagesCount();
@@ -496,7 +496,7 @@ vector<vector<double>> SddpSolver::GetPolicy(vector<const double *> scenario) {
 	}
 
 	//return
-	vector<vector<double>> solutions;
+	vector<vector<double> > solutions;
 	for(unsigned int i = 0; i < nodes.size(); ++i) {
 		vector<double> stage_soln;
 		for(unsigned int a = 0; a < assets; ++a) {

@@ -2,7 +2,7 @@
 
 #include "Exception.h"
 #include "ScenarioTree.h"
-#include "armadillo.h"
+#include <armadillo>
 #include "ScenarioModel.h"
 #include <string>
 #include <vector>

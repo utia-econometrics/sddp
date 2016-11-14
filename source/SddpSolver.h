@@ -144,12 +144,12 @@ public:
 	virtual ~SddpSolver(void);
 
 	virtual void Solve(mat &weights, double &objective);
-	void SddpSolver::Solve(arma::mat &weights, double &lower_bound_exact, double &upper_bound_mean, double &upper_bound_bound);
+	void Solve(mat &weights, double &lower_bound_exact, double &upper_bound_mean, double &upper_bound_bound);
 	virtual void GetStageSamples(vector<unsigned int> &stage_samples);
 	virtual void GetReducedSamples(vector<unsigned int> &stage_samples);
 
-	void EvaluatePolicy(boost::function<vector<vector<double>>(vector<const double *>)> policy, double &return_mean, double &return_upper_bound, unsigned int iterations = 10);
-	vector<vector<double>> GetPolicy(vector<const double *> scenario);
+	void EvaluatePolicy(boost::function<vector<vector<double> >(vector<const double *>)> policy, double &return_mean, double &return_upper_bound, unsigned int iterations = 10);
+	vector<vector<double> > GetPolicy(vector<const double *> scenario);
 
 	SddpSolverNode *GetRoot();
 	void ClearNodes();
@@ -186,7 +186,7 @@ protected:
 	SddpSolverNode *SampleNodeByProbability(SddpSolverNode *parent, double probability);
 
 	map<SCENINDEX, SddpSolverNode *> nodes_;
-	vector<vector<SddpSolverCut>> cuts_;
+	vector<vector<SddpSolverCut> > cuts_;
 	RandomGenerator *generator_;
 	unsigned int forward_iterations_; //iteration nr of the algorithm
 	unsigned int backward_iterations_; //iteration nr of the algorithm

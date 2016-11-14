@@ -1,6 +1,6 @@
 #pragma once
 
-#include "armadillo.h"
+#include <armadillo>
 #include "Distribution.h"
 #include "ScenarioTree.h"
 

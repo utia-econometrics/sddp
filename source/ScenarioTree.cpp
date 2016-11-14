@@ -372,8 +372,8 @@ void ScenarioTree::ReduceOneScenario(unsigned int stage) {
 }
 
 double ScenarioTree::ScenarioDistance(SCENINDEX s1, SCENINDEX s2) const {
-	TreeNode &t1 = this->operator()(s1);
-	TreeNode &t2 = this->operator()(s2);
+	TreeNode t1 = this->operator()(s1);
+	TreeNode t2 = this->operator()(s2);
 #ifdef _DEBUG
 	if(t1.GetSize() != t2.GetSize()) {
 		throw ScenarioTreeException("Cannot compute distance of two vectors with unequal dimensions.");

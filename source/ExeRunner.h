@@ -5,8 +5,10 @@
 
 #include <exception>
 #include <string>
+/*
 #include <windows.h> 
 #include <direct.h>
+*/
 #include "Exception.h"
 using namespace std;
 
@@ -21,7 +23,9 @@ public:
 class ExeRunner
 {
 public:
-	static string ExeRunner::RunExe(const string &exePath, const string &params) {
+	static string RunExe(const string &exePath, const string &params) {
+		throw ExeRunnerException("Not implemented in UNIX yet");
+/*
 		string outputData; //app output
 
 		/////////////////////////////////////////////////////////////////////////////
@@ -200,5 +204,6 @@ public:
 		if (!CloseHandle(hInputWrite)) throw ExeRunnerException("CloseHandle");
 
 		return outputData;
+*/
 	}
 };

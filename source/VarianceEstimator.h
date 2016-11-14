@@ -1,7 +1,7 @@
 #pragma once
 
 #include "RandomGenerator.h"
-#include "armadillo.h"
+#include <armadillo>
 
 using namespace arma;
 

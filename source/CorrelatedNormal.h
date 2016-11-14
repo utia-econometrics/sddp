@@ -1,5 +1,5 @@
 #pragma once
-#include "scenariomodel.h"
+#include "ScenarioModel.h"
 
 class CorrelatedNormal :
 	public ScenarioModel

@@ -1,4 +1,4 @@
-#include "armadillo.h"
+#include <armadillo>
 #include "NormalDistribution.h"
 #include "ScenarioTree.h"
 #include "SaaSolver.h"
@@ -22,7 +22,7 @@ const unsigned int STAGES = 10;
 const unsigned int ITERATIONS = 10;
 const unsigned int SEED = 350916502;
 const unsigned int DESCENDANTS = 1000;
-const unsigned int REDUCED_DESCENDANTS = 250; //0 == no reduction
+const unsigned int REDUCED_DESCENDANTS = 0; //0 == no reduction
 const unsigned int DERIVATIVE_ITERATIONS = 10;
 const double TRANSACTION_COSTS = 0.000; //0.003
 

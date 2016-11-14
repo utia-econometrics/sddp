@@ -8,6 +8,7 @@
 #include <boost/multiprecision/cpp_int.hpp> 
 #define SCENINDEX boost::multiprecision::uint128_t
 using namespace std;
+using namespace boost;
 
 class Helper
 {

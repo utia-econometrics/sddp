@@ -3,7 +3,7 @@
 #include <string>
 #include <map>
 #include <iomanip>
-#include "armadillo.h"
+#include <armadillo>
 #include "RandomGenerator.h"
 
 using namespace std;
