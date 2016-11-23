@@ -4,15 +4,14 @@ project(sddp)
 #config - directories
 set( CPLEX_HEADER_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/cplex/include" )
 set( CONCERT_HEADER_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/concert/include" )
-set( COIN_HEADER_DIR "/usr/local/include/coin" )
+set( COIN_HEADER_DIR "/usr/local/lib/coin/build/include/coin" )
 set( CPLEX_LIB_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/cplex/lib/x86-64_linux/static_pic" )
 set( CPLEX_BIN_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/cplex/bin/x86-64_linux" )
 set( CONCERT_LIB_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/concert/lib/x86-64_linux/static_pic" )
-set( COIN_LIB_DIR "/usr/local/lib/coin" )
+set( COIN_LIB_DIR "/usr/local/lib/coin/build/lib" )
 set( CPLEX_VER "1263" )
 
-#config - optimization
-set( CMAKE_BUILD_TYPE "Release" )
+set(CMAKE_CXX_FLAGS_DEBUG "-D_DEBUG")
 
 #COIN-OR headers, put your directory
 include_directories(source ${COIN_HEADER_DIR} )
@@ -44,7 +43,7 @@ find_library(COINOSICLP libOsiClp.so ${COIN_LIB_DIR} )
 find_library(COINOSICBC libOsiCbc.so ${COIN_LIB_DIR} )
 
 #Boost libraries
-find_package(Boost COMPONENTS system filesystem REQUIRED)
+find_package(Boost 1.61 COMPONENTS system filesystem REQUIRED)
 include_directories(${Boost_INCLUDE_DIRS})
 
 #Armadillo library
