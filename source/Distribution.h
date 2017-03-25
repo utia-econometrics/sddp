@@ -67,6 +67,10 @@ public:
 		return sigma_;
 	}
 
+	unsigned int GetDimension() const {
+		return mu_.n_rows;
+	}
+
 protected:
 	///distirbution parameters
 	colvec mu_;

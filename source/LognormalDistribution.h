@@ -1,5 +1,6 @@
 #pragma once
 #include "NormalDistribution.h"
+
 class LognormalDistribution :
 	public NormalDistribution
 {

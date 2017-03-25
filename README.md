@@ -11,3 +11,5 @@ For compiling debug version of the project, run
 
 `cmake -DCMAKE_BUILD_TYPE=Debug ..`
 
+Example run of the program to solve asset model with data file data.txt
+ sddp asset data.txt

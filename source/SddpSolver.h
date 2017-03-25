@@ -52,6 +52,7 @@ struct SddpSolverCut {
 struct SddpSolverNode {
 	SddpSolverNode() {
 		parent = 0;
+		dimension = 0;
 		solution = 0;
 		subgradient = 0;
 		type = NODE_DEFAULT;
@@ -59,8 +60,6 @@ struct SddpSolverNode {
 		solved_backward_nr = 0;
 		cut_added_nr = 0;
 		cut_tail = false;
-		var_subgradient = 0;
-		var_subgradient_other = 0;
 	}
 
 	~SddpSolverNode() {
@@ -72,43 +71,28 @@ struct SddpSolverNode {
 		}
 	}
 
-	double GetValue() {
-		double sum = 0.0;
-		for(unsigned int i = 0; i < tree_node.GetSize(); ++i) {
-			sum += solution[i];
-		}
-		return sum;
-	}
-
-	double GetCapital(const double *weights) {
-		double sum = 0.0;
-		const double *values = tree_node.GetValues();
-		for(unsigned int i = 0; i < tree_node.GetSize(); ++i) {
-			sum += weights[i] * values[i];
-		}
-		return sum;
-	}
-
 	double GetProbability() {
 		return tree_node.GetProbability();
+	}
+
+	unsigned int GetStage() {
+		return tree_node.GetStage();
 	}
 
 	TreeNode tree_node; //equivalent node in the scenario tree
 	SddpSolverNode *parent; //parent node or 0
 	vector<SddpSolverNode *> descendants; //descendant nodes
+	unsigned int dimension; //size of the solution and subgradient vectors
 	double *solution; //optimal weights so far
-	double var; //current Value at Risk for calculating CVaR
-	double var_subgradient; //subgradient of the VaR variable
-	double value; //current value (for upper bound)
-	double objective; //current objective value (lower bound)
+	double recourse; //recourse value of the node - usually == objective, but there might be some transformation
 	double *subgradient; //subgradient of current solution 
+	double recourse_value; //current  recourse value (for upper bound)
+	double objective; //current objective value (lower bound)
 	unsigned int solved_forward_nr; //number of iteration when the model was solved
 	unsigned int solved_backward_nr; //number of iteration when the model was solved
 	unsigned int cut_added_nr; //number of iteration when we processed the cuts
 	SddpSolverNodeType type; //type of the node when employing conditional sampling / path
 	bool cut_tail; //if we can cut off the tail values for CVaR
-	double var_other; //current Value at Risk for calculating CVaR
-	double var_subgradient_other; //subgradient of the VaR variable
 };
 
 struct SddpComparableNode {
@@ -136,11 +120,101 @@ public:
 	}
 };
 
+//algorithm config
+struct SddpSolverConfig {
+	//defined how many nodes should be sampled per each stage, 0 means solver default
+	unsigned int samples_per_stage = 0;
+
+	//defines to how many nodes per stage reduction shall be done, 0 = no scenario reduction performed
+	unsigned int reduced_samples_per_stage = 0;
+
+
+	//defines how many nodes to sample in each forward pass
+	unsigned int forward_count = 10000;
+
+	/*
+	defines how many of the bacward pass nodes to select in and compute cuts for
+	this needs to be lower or equal to the forward_count
+	*/
+	unsigned int backward_count = 25;
+
+	//defines maximum number of iterations for the algorithm, 0 = unlimited
+	unsigned int max_iterations = 200;
+
+#ifdef _DEBUG
+	ExternalSolver external_solver = SOLVER_COINOR;
+#else
+	ExternalSolver external_solver = SOLVER_CPLEX;
+#endif
+
+	//defines absolute acceptable difference between lower and upper bound to stop
+	double convergence_bound = 0.02;
+
+	//use statistical tests to determine stopping upper bound, if turned off, mean is used instead
+	bool stop_use_tests = true;
+	//defines confidence level of testing the difference between lower and upper bound
+	double stop_confidence = 0.95;
+
+	//defines after how many same lower bound algorithm decides to stop -> no more improving
+	unsigned int stop_elements = 10;
+	//defines negligible difference for testing of lower bound not imroving
+	double epsilon = 1e-8;
+
+	//choose between standard strategy and importance sampling
+	SddpStrategy solver_strategy = STRATEGY_DEFAULT; //STRATEGY_CONDITIONAL;
+
+	//noder per stage in the forward pass estimators
+	unsigned int forward_fixed_stage_nodes = 0;
+
+
+	//defines the probability to select tail node in importance sampling (CVaR)
+	double conditional_probability = 0.3;
+
+	//enables reduction of upper bound bias if certain conditions are met
+	bool cut_nodes_not_tail = false;
+
+	/*
+	heuristic optimize the nodes selection in first stages .. implementation not ideally finished for importance/conditional
+	needs to be turned off for inequal probabilities of nodes!!
+	*/
+	bool quick_conditional = false;
+
+
+	//defines that the algorithm shall stop after N cuts have been collected. 0 = unlimited
+	unsigned int stop_cuts = 0;
+
+	//defines if to output detailed statistics about each iteration
+	bool report_computation_times = false;
+
+	//enables output of the node values into a textfile
+	bool report_node_values = false;
+
+	//Defines debugging of the forward pass - always selects all descendants (exponentially hard)
+	bool debug_forward = false;
+
+	//Defines debugging of the scenario tree - ovverides scenario count and generates only one descendant per stage
+	bool debug_tree = false;
+
+	/*
+	Enables upper bound debugging - after stabilization of solution, the algorithm performs series 
+	of upper bound computations (user can set their number and count of nodes in each iteration)
+	Basic statistics are returned afterwards
+	*/
+	bool debug_bound = false;
+	//how many upper bounds to comute
+	unsigned int debug_bound_count = 100;
+	//how many nodes to include in each iteration
+	unsigned int debug_bound_nodes = 10000;
+
+	//enables output of the LP model from the solver and debug info
+	bool debug_solver = false;
+};
+
 class SddpSolver :
 	public Solver
 {
 public:
-	SddpSolver(const ScenarioModel *model, unsigned int fix_descendant_count = 0, unsigned int fix_reduced_count = 0);
+	SddpSolver(const ScenarioModel *model, SddpSolverConfig &config);
 	virtual ~SddpSolver(void);
 
 	virtual void Solve(mat &weights, double &objective);
@@ -170,9 +244,9 @@ protected:
 	SddpSolverNode *BuildNode(SCENINDEX index);
 	bool NodeExists(TreeNode treenode);
 	bool NodeExists(SCENINDEX index);
-	void CalculateTotalValue(SddpSolverNode *node, double &value, double &probability);
-	double CalculateNodeCapital(SddpSolverNode *node);
-	double CalculateNodeCapital(SddpSolverNode *node, SddpSolverNode *parent);
+	void CalculateSinglePathUpperBound(SddpSolverNode *node, double &value, double &probability);
+	double ApproximateDecisionValue(SddpSolverNode *node);
+	double ApproximateDecisionValue(SddpSolverNode *node, SddpSolverNode *parent);
 	void ClearNodeDescendants(SddpSolverNode *node);
 	void ClearSingleNode(SddpSolverNode *node);
 	void ChooseRandomIndices(SCENINDEX start, SCENINDEX end, unsigned int count, vector<SCENINDEX> & indices);
@@ -194,32 +268,10 @@ protected:
 	unsigned int solved_lps_; //number of LPs solved
 	time_duration lp_solve_time_; //time spent in a LP solver
 	
-	unsigned int fix_descendant_count_; //fixes descendant count for each stage
-	unsigned int fix_reduced_count_; //fixes reduced descendant count for each stage
-
-	//constants
-	const static double CONVERGENCE_BOUND;
-	const static unsigned int FORWARD_COUNT;
-	const static unsigned int BACKWARD_COUNT;
-	const static unsigned int MAX_ITERATIONS;
-	const static ExternalSolver EXTERNAL_SOLVER;
-	const static SddpStrategy SOLVER_STRATEGY;
-	const static double CONDITIONAL_PROBABILITY;
-	const static double STOP_CONFIDENCE;
-	const static int STOP_ELEMENTS;
-	const static double EPSILON;
-	const static bool COMPARISON_EQUAL;
-	const static bool QUICK_CONDITIONAL;
-	const static bool USE_IMPORTANCE;
-	const static int FORWARD_FIXED_STAGE_NODES;
+	SddpSolverConfig config_; //algorithm configuration
 
 	//output files
 	boost::filesystem::ofstream value_file_;
 	boost::filesystem::ofstream value_file_forward_;
 	map<SCENINDEX, bool> reported_forward_values_;
-
-	//coefficients
-	vector<double> risk_coefficients_;
-	vector<double> risk_coefficients_other_;
-	vector<double> expectation_coefficients_;
 };

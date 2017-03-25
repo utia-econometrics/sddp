@@ -53,12 +53,12 @@ protected:
 class ScenarioTree
 {
 public:
-	ScenarioTree(unsigned int stages, const vector<unsigned int> &stage_samples, unsigned int node_size, StageDependence dependence, 
+	ScenarioTree(unsigned int stages, const vector<unsigned int> &stage_samples, StageDependence dependence,
 		const vector<Distribution*> &stage_distributions, boost::function<void(double *)> evaluate);
 	~ScenarioTree(void);
 	void GenerateTree();
 	SCENINDEX ScenarioCount() const;
-	unsigned int GetNodeSize() const;
+	unsigned int GetNodeSize(unsigned int stage) const;
 	unsigned int StageCount() const;
 	SCENINDEX ScenarioCountStage(unsigned int stage) const;
 	unsigned int DescendantCountStage(unsigned int stage) const;
@@ -97,9 +97,8 @@ protected:
 	//samples to help independent sampling
 	colvec *probabilities_;
 
-
-	//number of elements in each node
-	unsigned int node_size_;
+	//number of elements in each node, by stages
+	vector<unsigned int> stage_node_size_;
 	
 	//destroys the whole scenario tree
 	void DestroyTree();

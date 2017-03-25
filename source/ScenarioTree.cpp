@@ -36,7 +36,7 @@ unsigned int TreeNode::GetStage() const {
 }
 
 unsigned int TreeNode::GetSize() const {
-	return tree_->GetNodeSize();
+	return tree_->GetNodeSize(tree_->GetStage(index_));
 }
 	
 const double * TreeNode::GetValues() const {
@@ -67,12 +67,11 @@ bool TreeNode::HasParent() const {
 	return tree_->HasParent(index_);
 }
 
-ScenarioTree::ScenarioTree(unsigned int stages, const vector<unsigned int> &stage_samples, unsigned int node_size, StageDependence dependence, 
+ScenarioTree::ScenarioTree(unsigned int stages, const vector<unsigned int> &stage_samples, StageDependence dependence,
 						   const vector<Distribution*> &stage_distributions, boost::function<void(double *)> evaluate)
 {
 	stages_ = stages;
 	stage_samples_ = stage_samples;
-	node_size_ = node_size;
 	dependence_ = dependence;
 	stage_distributions_ = stage_distributions;
 	evaluate_ = evaluate;
@@ -92,6 +91,11 @@ ScenarioTree::ScenarioTree(unsigned int stages, const vector<unsigned int> &stag
 		throw ScenarioTreeException("Root (stage 1) scenario must be deterministic (only 1 scenario).");
 	}
 #endif
+
+	//fill out node sizes from distributions
+	for (unsigned int stage = 1; stage <= stages; ++stage) {
+		stage_node_size_.push_back(stage_distributions[stage - 1]->GetDimension());
+	}
 }
 
 ScenarioTree::~ScenarioTree(void)
@@ -276,8 +280,8 @@ TreeNode ScenarioTree::GetRoot() const {
 	return this->operator ()(0);
 }
 
-unsigned int ScenarioTree::GetNodeSize() const {
-	return node_size_;
+unsigned int ScenarioTree::GetNodeSize(unsigned int stage) const {
+	return stage_node_size_[stage - 1];;
 }
 
 bool ScenarioTree::HasParent(SCENINDEX index) const {
