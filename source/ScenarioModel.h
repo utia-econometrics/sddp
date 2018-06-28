@@ -25,11 +25,17 @@ public:
 	//converts the sampled value to the modeled process = sampling post processing
 	virtual void Evaluate(double *value) const;
 
-	//returns the distribution to be sampled at stage t
-	virtual Distribution* GetDistribution(unsigned int stage) const = 0;
+	//returns the distribution to be sampled at stage t and state s
+	virtual Distribution* GetDistribution(unsigned int stage, unsigned int state) const = 0;
+
+	//returns the size of the decision vector at stage t
+	virtual mat GetTransitionProbabilities(unsigned int stage) const;
 
 	//returns the size of the decision vector at stage t
 	virtual unsigned int GetDecisionSize(unsigned int stage) const = 0;
+
+	//returns the number of states for each stage
+	virtual unsigned int GetStatesCountStage(unsigned int stage) const;
 
 	//return the stage dependence in this model, default is stage independent
 	virtual StageDependence GetStageDependence() const;
@@ -127,6 +133,15 @@ public:
 		return stages_;
 	}
 
+	//returns total count of stages
+	unsigned int GetStatesCount() const {
+		unsigned int count = 0;
+		for (unsigned int stage = 1; stage <= GetStagesCount(); ++stage) {
+			count += GetStatesCountStage(stage);
+		}
+		return count;
+	}
+
 	//reutrns vector with stage numbers
 	vector<unsigned int> GetStages() const {
 		vector<unsigned int> st;
@@ -135,4 +150,13 @@ public:
 		}
 		return st;
 	}
+
+	Distribution* GetDistribution(unsigned int stage) const {
+		if (GetStageDependence() == STAGE_INDEPENDENT) {
+			return GetDistribution(stage, 1); //fixed index of first state
+		}
+
+		throw ScenarioModelException("Use other overloads with state for non independent models.");
+	}
+
 };

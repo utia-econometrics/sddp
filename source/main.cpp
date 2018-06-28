@@ -17,7 +17,7 @@ using namespace boost;
 const unsigned int STAGES = 3;
 const unsigned int ITERATIONS = 1;
 const unsigned int SEED = 350916502;
-const unsigned int DESCENDANTS = 100;
+const unsigned int DESCENDANTS = 100; //100
 const unsigned int REDUCED_DESCENDANTS = 0; //0 == no reduction
 const unsigned int DERIVATIVE_ITERATIONS = 10;
 
@@ -63,6 +63,10 @@ AssetAllocationModel* assetModel(string inputFile) {
 	param.confidence = 0.95;
 	param.confidence_other = 0.99;
 	param.risk_measure = RISK_CVAR_NESTED; //or RISK_CVAR_MULTIPERIOD
+	param.stage_dependence = MARKOV; // STAGE_INDEPENDENT
+	param.markov_crisis_variance_factor = 1.3;
+	param.markov_to_crisis_probability = 0.1;
+	param.markov_from_crisis_probability = 0.6;
 	param.discount_factor = 1.00;
 	param.transaction_costs = 0.0; //0.003
 								   //first coefs need to be zero
@@ -144,6 +148,8 @@ int main(int argc, char *argv[], char *envp[]) {
 		SddpSolverConfig config;
 		config.samples_per_stage = DESCENDANTS;
 		config.reduced_samples_per_stage = REDUCED_DESCENDANTS;
+		config.solver_strategy = STRATEGY_DEFAULT; // STRATEGY_CONDITIONAL
+		// config.cut_nodes_not_tail = true;
 		//there are more settings, for instace:
 		//config.debug_solver = true;
 		SddpSolver solver(model, config);
@@ -173,6 +179,10 @@ int main(int argc, char *argv[], char *envp[]) {
 
 	//clean up
 	delete model;
+
+	//even when debugging do not end
+	char c;
+	cin >> c;
 
 	return 0;
 }

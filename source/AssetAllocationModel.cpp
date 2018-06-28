@@ -64,7 +64,7 @@ mat AssetAllocationModel::GetSigma() const {
 	return sigma_;
 }
 
-Distribution* AssetAllocationModel::GetDistribution(unsigned int stage) const {
+Distribution* AssetAllocationModel::GetDistribution(unsigned int stage, unsigned int state) const {
 #if DEBUG_DISTRIBUTION == 1
 	if(true) {
 #else
@@ -75,7 +75,23 @@ Distribution* AssetAllocationModel::GetDistribution(unsigned int stage) const {
 		mat sigma = zeros(GetAssetsCount(), GetAssetsCount());
 		return new NormalDistribution(mu, sigma);
 	}
-	return new NormalDistribution(mu_, sigma_);
+	if (GetStageDependence() == STAGE_INDEPENDENT) {
+		return new NormalDistribution(mu_, sigma_);
+	}
+	else if (GetStageDependence() == MARKOV) {
+		if (state == 1) { //no-crisis
+			return new NormalDistribution(mu_, sigma_);
+		}
+		else if (state == 2) { //crisis
+			return new NormalDistribution(mu_, sigma_ * param_.markov_crisis_variance_factor);
+		}
+		else {
+			throw ScenarioModelException("Unknown state.");
+		}
+	}
+	else {
+		throw ScenarioModelException("Unknown dependence model.");
+	}
 }
 
 unsigned int AssetAllocationModel::GetDecisionSize(unsigned int stage) const {
@@ -89,7 +105,50 @@ void AssetAllocationModel::Evaluate(double *value) const {
 }
 
 StageDependence AssetAllocationModel::GetStageDependence() const {
-	return STAGE_INDEPENDENT;
+	return param_.stage_dependence;
+}
+
+unsigned int AssetAllocationModel::GetStatesCountStage(unsigned int stage) const {
+	if (stage == 1) {
+		//fixed root
+		return 1;
+	}
+	if (GetStageDependence() == STAGE_INDEPENDENT) {
+		return 1;
+	}
+	else if (GetStageDependence() == MARKOV) {
+		return 2; // crisis x non-crisis
+	}
+	else {
+		throw ScenarioModelException("Unknown dependence model.");
+	}
+}
+
+mat AssetAllocationModel::GetTransitionProbabilities(unsigned int stage) const {
+	if (GetStageDependence() == STAGE_INDEPENDENT) {
+		return ones(1);
+	}
+	else if (GetStageDependence() == MARKOV) {
+		if (stage == 1) {
+			//we suppose root is in non-crisis, fixed state == 1
+			mat prob(1, 2);
+			prob(0, 0) = 1 - param_.markov_to_crisis_probability;
+			prob(0, 1) = param_.markov_to_crisis_probability;
+			return prob;
+		}
+		else {
+			//make 2x2 matrix of transitions
+			mat prob(2, 2);
+			prob(0, 0) = 1 - param_.markov_to_crisis_probability;
+			prob(0, 1) = param_.markov_to_crisis_probability;
+			prob(1, 0) = param_.markov_from_crisis_probability;
+			prob(1, 1) = 1 - param_.markov_from_crisis_probability;
+			return prob;
+		}
+	}
+	else {
+		throw ScenarioModelException("Unknown dependence model.");
+	}
 }
 
 double AssetAllocationModel::GetRecourseLowerBound(unsigned int stage) const {

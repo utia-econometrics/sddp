@@ -8,7 +8,7 @@ SddpSolver::SddpSolver(const ScenarioModel *model, SddpSolverConfig &config)
 :Solver(model)
 {
 	tree_ = 0;
-	cuts_.resize(model_->GetStagesCount());
+	cuts_.resize(model_->GetStatesCount());
 	generator_ = RandomGenerator::GetGenerator();
 
 	config_ = config;
@@ -90,11 +90,6 @@ void SddpSolver::Solve(arma::mat &weights, double &lower_bound_exact, double &up
 	double ub_mean;
 
 	bool do_backward_pass = true;
-
-	//vars to choose nodes
-	unsigned int laststage = model_->GetStagesCount();
-	SCENINDEX from = tree_->ScenarioCount(laststage - 1);
-	SCENINDEX to = from + tree_->ScenarioCountStage(laststage) - 1;
 
 	while (forward_iterations_ < config_.max_iterations) {
 		if (config_.report_node_values) {
@@ -223,7 +218,8 @@ void SddpSolver::Solve(arma::mat &weights, double &lower_bound_exact, double &up
 
 			if (config_.stop_cuts > 0) {
 				//no cuts in the last stage, select the ones from the stage before that
-				if (cuts_[model_->GetStagesCount() - 2].size() >= config_.stop_cuts) {
+				unsigned int idx = tree_->StateCount(tree_->StageCount() - 1);
+				if (cuts_[idx - 1].size() >= config_.stop_cuts) {
 					do_backward_pass = false;
 				}
 			}
@@ -490,6 +486,8 @@ SddpSolverNode *SddpSolver::BuildNode(TreeNode treenode) {
 	node->solution = new double[decisions];
 	node->subgradient = new double[decisions];
 	node->dimension = decisions;
+	node->parent = 0; //explicit initialization
+	node->cut_added_nr.resize(treenode.GetNextStatesCount(), 0); //initialize the vector
 	nodes_[treenode.GetNumber()] = node;
 	return node;
 }
@@ -559,11 +557,17 @@ void SddpSolver::ForwardPassStandard(unsigned int count, vector<SCENINDEX> &node
 
 	for(unsigned int stage = 2; stage <= stages; ++stage) {
 		actual_nodes.clear();
-		if(config_.debug_forward || config_.debug_tree || (config_.quick_conditional && (tree_->DescendantCountStage(stage) <= stage_count))) {
+		if(config_.debug_forward || config_.debug_tree || (config_.quick_conditional && (tree_->DescendantCountTotalStage(stage) <= stage_count))) {
 			//choose all nodes
-			SCENINDEX from = tree_->ScenarioCount(stage - 1);
-			SCENINDEX to = from + tree_->ScenarioCountStage(stage) - 1;
-			for(SCENINDEX index = from; index <= to; ++index) {
+			SCENINDEX from = tree_->operator ()(stage, 1, 0).GetIndex(); //this stage, first state, 0 increment
+			SCENINDEX to;
+			if (stage == stages) {
+				to = tree_->ScenarioCount(); //to the last scenario
+			}
+			else {
+				to = tree_->operator ()(stage + 1, 1, 0).GetIndex(); //next stage, first state, 0 increment
+			}
+			for(SCENINDEX index = from; index < to; ++index) {
 				SddpSolverNode *node = BuildNode(index);
 				ConnectNode(node, BuildNode(node->tree_node.GetParent().GetIndex()));
 				if(solve) {
@@ -576,7 +580,8 @@ void SddpSolver::ForwardPassStandard(unsigned int count, vector<SCENINDEX> &node
 			for(unsigned int i = 0; i < last_nodes.size(); ++i) {
 				SddpSolverNode *parent = last_nodes[i];
 				for(unsigned int j = 0; j < stage_count; ++j) {
-					SddpSolverNode *node = SampleNodeByProbability(parent, generator_->GetRandom());
+					unsigned int next_state = SampleState(parent);
+					SddpSolverNode *node = SampleNode(parent, next_state);
 					ConnectNode(node, parent);
 					if(solve) {
 						SolveNode(node);
@@ -593,11 +598,12 @@ void SddpSolver::ForwardPassStandard(unsigned int count, vector<SCENINDEX> &node
 	}
 }
 
-SddpSolverNode * SddpSolver::SampleNodeByProbability(SddpSolverNode *parent, double probability) {
+SddpSolverNode * SddpSolver::SampleNode(SddpSolverNode *parent, unsigned int next_state) {
+	double probability = generator_->GetRandom();
 	double prop_sum = 0;
 	ScenarioTreeConstIterator it;
-	SddpSolverNode *node;
-	for(it = parent->tree_node.GetDescendantsBegin(); it != parent->tree_node.GetDescendantsEnd(); ++it) {
+	SddpSolverNode *node = 0;
+	for(it = parent->tree_node.GetDescendantsBegin(next_state); it != parent->tree_node.GetDescendantsEnd(next_state); ++it) {
 		prop_sum += it->GetProbability();
 		if(prop_sum >= probability) {
 			node = BuildNode(*it);
@@ -605,6 +611,21 @@ SddpSolverNode * SddpSolver::SampleNodeByProbability(SddpSolverNode *parent, dou
 		}
 	}
 	return node;
+}
+
+unsigned int SddpSolver::SampleState(SddpSolverNode *parent) {
+	double probability = generator_->GetRandom();
+	double prop_sum = 0;
+	unsigned int state = 0;
+	ScenarioTreeStateConstIterator it;
+	for (it = parent->tree_node.GetNextStatesBegin(); it != parent->tree_node.GetNextStatesEnd(); ++it) {
+		prop_sum += it->GetProbability();
+		if (prop_sum >= probability) {
+			state = it->GetState();
+			break;
+		}
+	}
+	return state;
 }
 
 void SddpSolver::ForwardPassConditional(unsigned int count, vector<SCENINDEX> &nodes, bool solve) {	
@@ -626,11 +647,16 @@ void SddpSolver::ForwardPassConditional(unsigned int count, vector<SCENINDEX> &n
 
 	for(unsigned int stage = 2; stage <= stages; ++stage) {
 		actual_nodes.clear();
-		if (config_.debug_forward || config_.debug_tree || (config_.quick_conditional && (tree_->DescendantCountStage(stage) <= stage_count))) {
-			//choose all
-			SCENINDEX from = tree_->ScenarioCount(stage - 1);
-			SCENINDEX to = from + tree_->ScenarioCountStage(stage) - 1;
-			for(SCENINDEX index = from; index <= to; ++index) {
+		if (config_.debug_forward || config_.debug_tree || (config_.quick_conditional && (tree_->DescendantCountTotalStage(stage) <= stage_count))) {
+			SCENINDEX from = tree_->operator ()(stage, 1, 0).GetIndex(); //this stage, first state, 0 increment
+			SCENINDEX to;
+			if (stage == stages) {
+				to = tree_->ScenarioCount(); //to the last scenario
+			}
+			else {
+				to = tree_->operator ()(stage + 1, 1, 0).GetIndex(); //next stage, first state, 0 increment
+			}
+			for (SCENINDEX index = from; index < to; ++index) {
 				SddpSolverNode *node = BuildNode(index);
 				ConnectNode(node, BuildNode(node->tree_node.GetParent().GetIndex()));
 				if(solve) {
@@ -652,9 +678,10 @@ void SddpSolver::ForwardPassConditional(unsigned int count, vector<SCENINDEX> &n
 			while(counter < stage_count) {
 				if(parent != last_nodes[parent_idx]) { //optimization when we select multiple nodes for a single parent
 					parent = last_nodes[parent_idx];
+					unsigned int next_state = SampleState(parent); //sample where we will be in the next state
 					nodes.clear();
 					ScenarioTreeConstIterator it;
-					for(it = parent->tree_node.GetDescendantsBegin(); it != parent->tree_node.GetDescendantsEnd(); ++it) {
+					for(it = parent->tree_node.GetDescendantsBegin(next_state); it != parent->tree_node.GetDescendantsEnd(next_state); ++it) {
 						bool existed = NodeExists(*it);
 						node = BuildNode(*it);
 						//memory optimization - do not connect, calculate value directly using parent and delete
@@ -743,23 +770,38 @@ void SddpSolver::BackwardPass(const vector<SCENINDEX> &nodes) {
 	//solve the in the order of the stages to get the best cuts
 	//the nodes passed should be from the last stage
 	vector<SCENINDEX> solvenodes;
+	vector<unsigned int> solvestates;
 	vector<SCENINDEX> actualnodes;
-	actualnodes = nodes;
+	vector<unsigned int> actualstates;
+	
+	//init actual states, only with last stage nodes
+	for (unsigned int i = 0; i < nodes.size(); ++i) {
+		SddpSolverNode *node = BuildNode(nodes[i]);
+#if _DEBUG
+		if (node->GetStage() != model_->GetStagesCount()) {
+			throw SddpSolverException("Invalid nodes passed to BackwardPass");
+		}
+#endif
+		if (node->parent != 0) {
+			actualnodes.push_back(node->parent->tree_node.GetIndex());
+			actualstates.push_back(node->GetState());
+		}
+	}
 
 	while(!actualnodes.empty()) {
 		solvenodes.clear();
+		solvestates.clear();
 		for(unsigned int i = 0; i < actualnodes.size(); ++i) {
 			SddpSolverNode *lastnode = BuildNode(actualnodes[i]);
-			if(lastnode->tree_node.GetDescendantsCount() > 0) {
-				//process the cuts
-				AddCut(lastnode);
-			}
-			if(lastnode->parent != 0) {
+			AddCut(lastnode, actualstates[i]);
+			if (lastnode->parent != 0) {
 				//will be solved in next round
 				solvenodes.push_back(lastnode->parent->tree_node.GetIndex());
+				solvestates.push_back(lastnode->GetState());
 			}
 		}
 		actualnodes = solvenodes;
+		actualstates = solvestates;
 	}
 }
 
@@ -819,26 +861,43 @@ void SddpSolver::SolveNodeCplex(SddpSolverNode *node) {
 		throw SddpSolverException("Size of decision variables vector does not match expected size for this stage.");
 	}
 
-	//var q = lower estimate for the cut
-	IloNumVar q(env, GetRecourseLowerBound(stage), GetRecourseUpperBound(stage));
 	if (!last_stage) {
 		//last stage has no recourse
+		//var q = lower estimate for the cut
+		IloNumVar q(env, GetRecourseLowerBound(stage), GetRecourseUpperBound(stage));
 		obj_expr += model_->GetDiscountFactor(stage) * q;
-	}
-	model.add(q);
+		model.add(q);
+		//used to calculate the recourse through multiple descendant states
+		IloExpr cut_average(env);
+		cut_average += -1 * q; //q = ... average through states ...
 
-	//add cuts
-	IloRangeArray cuts(env);
-	for (unsigned int i = 0; i < cuts_[stage - 1].size(); ++i) {
-		SddpSolverCut cut = cuts_[stage - 1][i];
-		IloExpr cut_expr(env);
-		cut_expr += -1 * q;
-		for (unsigned int j = 0; j < model_->GetDecisionSize(stage); ++j) {
-			cut_expr += cut.gradient[j] * decision_vars[j];
+		IloRangeArray cuts(env);
+		IloNumVarArray q_states(env, node->tree_node.GetNextStatesCount());
+		ScenarioTreeStateConstIterator it;
+		unsigned int q_idx = 0;
+		for (it = node->tree_node.GetNextStatesBegin(); it != node->tree_node.GetNextStatesEnd(); ++it) {
+			unsigned int state_idx = it->GetDistributionIndex();
+			q_states[q_idx] = IloNumVar(env, GetRecourseLowerBound(stage), GetRecourseUpperBound(stage));
+			//add cuts for each state
+			for (unsigned int i = 0; i < cuts_[state_idx].size(); ++i) {
+				SddpSolverCut cut = cuts_[state_idx][i];
+				IloExpr cut_expr(env);
+				cut_expr += -1 * q_states[q_idx];
+				for (unsigned int j = 0; j < model_->GetDecisionSize(stage); ++j) {
+					cut_expr += cut.gradient[j] * decision_vars[j];
+				}
+				cuts.add(IloRange(env, cut_expr, -cut.absolute));
+			}
+			
+			//bind them with recourse function q
+			cut_average += it->GetProbability() * q_states[q_idx];
+			++q_idx;
 		}
-		cuts.add(IloRange(env, cut_expr, -cut.absolute));
+
+		model.add(q_states);
+		cuts.add(IloRange(env, cut_average, 0));
+		model.add(cuts);
 	}
-	model.add(cuts);
 
 	//objective
 	IloObjective obj = IloMinimize(env, obj_expr);
@@ -912,28 +971,40 @@ void SddpSolver::SolveNodeCoinOr(SddpSolverNode *node) {
 		throw SddpSolverException("Size of decision variables vector does not match expected size for this stage.");
 	}
 
-	//var q = lower estimate for the cut
-	coin_model->AddVariable("q");
-	coin_model->AddLowerBound("q", GetRecourseLowerBound(stage));
-	coin_model->AddUpperBound("q", GetRecourseUpperBound(stage));
-	//objective with risk aversion coef lambda
-	if (!last_stage) {
-		//last stage has no recourse
+	if (!last_stage) { //last stage has no recourse
+		//var q = lower estimate for the cut
+		coin_model->AddVariable("q");
 		coin_model->AddObjectiveCoefficient("q", model_->GetDiscountFactor(stage));
-	}
+		coin_model->AddLowerBound("q", GetRecourseLowerBound(stage));
+		coin_model->AddUpperBound("q", GetRecourseUpperBound(stage));
+		coin_model->AddConstraint("cut_averaging");
+		coin_model->AddConstraintVariable("cut_averaging", "q", -1.0);
+		coin_model->AddConstrainBound("cut_averaging", EQUAL_TO, 0);
+		
+		ScenarioTreeStateConstIterator it;
+		for (it = node->tree_node.GetNextStatesBegin(); it != node->tree_node.GetNextStatesEnd(); ++it) {
+			unsigned int state_idx = it->GetDistributionIndex();
+			//add cuts for each state
+			stringstream var_str;
+			var_str << "q_" << state_idx;
+			string var_name = var_str.str();
+			coin_model->AddVariable(var_name);
+			for (unsigned int i = 0; i < cuts_[state_idx].size(); ++i) {
+				SddpSolverCut cut = cuts_[state_idx][i];
+				stringstream str;
+				str << "cut_" << state_idx << "_" << i + 1;
+				string constr_name = str.str();
+				coin_model->AddConstraint(constr_name);
+				coin_model->AddConstraintVariable(constr_name, var_name, -1.0);
+				for (unsigned int j = 0; j < model_->GetDecisionSize(stage); ++j) {
+					coin_model->AddConstraintVariable(constr_name, decision_vars[j], cut.gradient[j]);
+				}
+				coin_model->AddConstrainBound(constr_name, LOWER_THAN, -cut.absolute);
+			}
 
-	//add cuts
-	for(unsigned int i = 0; i < cuts_[stage - 1].size(); ++i) {
-		SddpSolverCut cut = cuts_[stage - 1][i];
-		stringstream str;
-		str << "cut_" << stage << "_" << i + 1;
-		string constr_name = str.str();
-		coin_model->AddConstraint(constr_name);
-		coin_model->AddConstraintVariable(constr_name, "q", -1.0);
-		for(unsigned int j = 0; j < model_->GetDecisionSize(stage); ++j) {
-			coin_model->AddConstraintVariable(constr_name, decision_vars[j], cut.gradient[j]);
+			//bind them with recourse function q
+			coin_model->AddConstraintVariable("cut_averaging", var_name, it->GetProbability());
 		}
-		coin_model->AddConstrainBound(constr_name, LOWER_THAN, -cut.absolute);
 	}
 
 	//solve the model
@@ -985,22 +1056,22 @@ double SddpSolver::ApproximateDecisionValue(SddpSolverNode *node, SddpSolverNode
 	return model_->ApproximateDecisionValue(node->GetStage(), parent->solution, node->tree_node.GetValues());
 }
 
-void SddpSolver::AddCut(SddpSolverNode *node) {
+void SddpSolver::AddCut(SddpSolverNode *node, unsigned int next_state) {
 #ifdef _DEBUG
-	unsigned int count = node->tree_node.GetDescendantsCount();
-	if(count < 1) {
+	unsigned int count = node->tree_node.GetDescendantsCount(next_state);
+	if (count < 1) {
 		throw SddpSolverException("Cannot make cut with no descendants");
 	}
 #endif
-
-	if(node->cut_added_nr == backward_iterations_) {
+	
+	if (node->cut_added_nr[next_state - 1] == backward_iterations_) {
 		return; //was processed before
 	}
-
+	
 	//prepare the descendant solutions
 	ClearNodeDescendants(node);
 	ScenarioTreeConstIterator it;
-	for(it = node->tree_node.GetDescendantsBegin(); it != node->tree_node.GetDescendantsEnd(); ++it) {
+	for (it = node->tree_node.GetDescendantsBegin(next_state); it != node->tree_node.GetDescendantsEnd(next_state); ++it) {
 		SddpSolverNode *descnode = BuildNode(*it);
 		descnode->parent = node;
 		node->descendants.push_back(descnode);
@@ -1012,14 +1083,14 @@ void SddpSolver::AddCut(SddpSolverNode *node) {
 
 	//calculate the expected value of the recourse function
 	double q_e = 0;
-	for(unsigned int i = 0; i < node->descendants.size(); ++i) {
+	for (unsigned int i = 0; i < node->descendants.size(); ++i) {
 		SddpSolverNode *descendant = node->descendants[i];
 		q_e += descendant->GetProbability() * descendant->recourse;
 	}
 
 	//calculate the subgradients by averaging over nodes
 	colvec subgrad = zeros(dimension);
-	for(unsigned int i = 0; i < node->descendants.size(); ++i) {
+	for (unsigned int i = 0; i < node->descendants.size(); ++i) {
 		SddpSolverNode *descendant = node->descendants[i];
 		colvec subgrad_desc(descendant->subgradient, dimension, false);
 
@@ -1029,16 +1100,16 @@ void SddpSolver::AddCut(SddpSolverNode *node) {
 
 		subgrad += descendant->GetProbability() * subgrad_desc;
 	}
-	
+
 	//prepare the cut in the form the gradient colvec and absolute value
 	//q(x,var) >= col(1)*x(1) + .. col(N)*x(N) + absolute
 	double *cut = new double[dimension];
-	for(unsigned int i = 0; i < dimension; ++i) {
+	for (unsigned int i = 0; i < dimension; ++i) {
 		cut[i] = subgrad(i);
 	}
 	//absolute term
 	double absolute = q_e;
-	for(unsigned int i = 0; i < dimension; ++i) {
+	for (unsigned int i = 0; i < dimension; ++i) {
 		absolute -= node->solution[i] * subgrad(i);
 	}
 
@@ -1046,11 +1117,11 @@ void SddpSolver::AddCut(SddpSolverNode *node) {
 	scut.gradient = cut;
 	scut.gradient_size = dimension;
 	scut.absolute = absolute;
-	//append cut
-	cuts_[stage - 1].push_back(scut);
+	//append cut - it is for the next stage and state is taken from parameter
+	cuts_[tree_->GetDistributionIndex(stage + 1, next_state)].push_back(scut);
 
 	//finalize so that we will not add the same cuts again
-	node->cut_added_nr = backward_iterations_;
+	node->cut_added_nr[next_state - 1] = backward_iterations_;
 
 	//clean up
 	ClearNodeDescendants(node);
@@ -1099,8 +1170,9 @@ double SddpSolver::CalculateUpperBoundDefault(const vector<SCENINDEX> &nodes) {
 			for (unsigned int j = 0; j < node->descendants.size(); ++j) {
 				SddpSolverNode *descendant = node->descendants[j];
 				//no tail cutting (standard approach)
-				value += descendant->GetProbability() * model_->CalculateUpperBound(descendant->GetStage(), node->solution, descendant->solution, descendant->tree_node.GetValues(), descendant->recourse_value, false);
-				probability += descendant->GetProbability();
+				double prop_single = descendant->GetProbability() * descendant->tree_node.GetStateProbability();
+				value += prop_single * model_->CalculateUpperBound(descendant->GetStage(), node->solution, descendant->solution, descendant->tree_node.GetValues(), descendant->recourse_value, false);
+				probability += prop_single;
 			}
 			value /= probability;
 			node->recourse_value = value;
@@ -1169,7 +1241,7 @@ void SddpSolver::CalculateSinglePathUpperBound(SddpSolverNode *node, double &val
 		recourse_value = model_->CalculateUpperBound(stage, parent_decisions, act_node->solution, act_node->tree_node.GetValues(), recourse_value, act_node->cut_tail);
 
 		//calculate the path probability
-		total_probability *= (1 / GetConditionalProbability(act_node)) * GetNodeProbability(act_node);
+		total_probability *= (1 / GetConditionalProbability(act_node)) * GetNodeProbability(act_node) * act_node->GetProbability() * act_node->tree_node.GetStateProbability();
 
 		if (config_.report_node_values) {
 			//if(reported_forward_values_.find(last_node->tree_node.GetIndex()) == reported_forward_values_.end()) {

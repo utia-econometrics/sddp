@@ -19,6 +19,10 @@ struct RiskParameters {
 	double transaction_costs;
 	double confidence_other;
 	vector<double> risk_coefficients_other;
+	StageDependence stage_dependence;
+	double markov_crisis_variance_factor;
+	double markov_to_crisis_probability;
+	double markov_from_crisis_probability;
 };
 
 
@@ -31,7 +35,9 @@ public:
 	virtual ~AssetAllocationModel(void);
 
 	virtual void Evaluate(double *value) const;
-	virtual Distribution* GetDistribution(unsigned int stage) const;
+	virtual Distribution* GetDistribution(unsigned int stage, unsigned int state) const;
+	virtual mat GetTransitionProbabilities(unsigned int stage) const;
+	virtual unsigned int GetStatesCountStage(unsigned int stage) const;
 	virtual StageDependence GetStageDependence() const;
 	virtual unsigned int GetDecisionSize(unsigned int stage) const;
 	virtual double GetDiscountFactor(unsigned int stage) const;

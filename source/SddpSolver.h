@@ -58,7 +58,6 @@ struct SddpSolverNode {
 		type = NODE_DEFAULT;
 		solved_forward_nr = 0;
 		solved_backward_nr = 0;
-		cut_added_nr = 0;
 		cut_tail = false;
 	}
 
@@ -79,6 +78,10 @@ struct SddpSolverNode {
 		return tree_node.GetStage();
 	}
 
+	unsigned int GetState() {
+		return tree_node.GetState();
+	}
+
 	TreeNode tree_node; //equivalent node in the scenario tree
 	SddpSolverNode *parent; //parent node or 0
 	vector<SddpSolverNode *> descendants; //descendant nodes
@@ -90,7 +93,7 @@ struct SddpSolverNode {
 	double objective; //current objective value (lower bound)
 	unsigned int solved_forward_nr; //number of iteration when the model was solved
 	unsigned int solved_backward_nr; //number of iteration when the model was solved
-	unsigned int cut_added_nr; //number of iteration when we processed the cuts
+	vector<unsigned int> cut_added_nr; //number of iteration when we processed the cuts, indexed by states
 	SddpSolverNodeType type; //type of the node when employing conditional sampling / path
 	bool cut_tail; //if we can cut off the tail values for CVaR
 };
@@ -236,7 +239,7 @@ protected:
 	void SolveNode(SddpSolverNode *node);
 	void SolveNodeCplex(SddpSolverNode *node);
 	void SolveNodeCoinOr(SddpSolverNode *node);
-	void AddCut(SddpSolverNode *node);
+	void AddCut(SddpSolverNode *node, unsigned int next_state);
 	void ForwardPassStandard(unsigned int count, vector<SCENINDEX> &nodes, bool solve = true);
 	void ForwardPassConditional(unsigned int count, vector<SCENINDEX> &nodes, bool solve = true);
 	void BackwardPass(const vector<SCENINDEX> &nodes);
@@ -257,7 +260,8 @@ protected:
 	double GetNodeProbability(SddpSolverNode *node);
 	double GetConditionalProbability(SddpSolverNode *node);
 	double GetConditionalProbability(unsigned int stage);
-	SddpSolverNode *SampleNodeByProbability(SddpSolverNode *parent, double probability);
+	SddpSolverNode *SampleNode(SddpSolverNode *parent, unsigned int next_state);
+	unsigned int SampleState(SddpSolverNode *parent);
 
 	map<SCENINDEX, SddpSolverNode *> nodes_;
 	vector<vector<SddpSolverCut> > cuts_;
