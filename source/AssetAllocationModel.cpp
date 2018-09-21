@@ -365,10 +365,6 @@ void AssetAllocationModel::FillSubradient(unsigned int stage, const double *prev
 			break;
 		}
 
-		for (unsigned int i = 0; i < GetDecisionSize(stage - 1); ++i) {
-			subgradient[i] = 0;
-		}
-
 		return; //no real calculation
 	}
 

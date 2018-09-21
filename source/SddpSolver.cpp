@@ -429,7 +429,12 @@
             unsigned int decisions = model_->GetDecisionSize(treenode.GetStage());
             node->tree_node = treenode;
             node->solution = new double[decisions];
-            node->subgradient = new double[decisions];
+            if(treenode.GetStage() > 1) {
+                unsigned int prev_decisions = model_->GetDecisionSize(treenode.GetStage() - 1);
+                node->subgradient = new double[prev_decisions];
+            }
+            else
+                node->subgradient = NULL;
             node->dimension = decisions;
             nodes.push_back(node);
             if(index > 0) {
@@ -484,7 +489,12 @@
         unsigned int decisions = model_->GetDecisionSize(treenode.GetStage());
         node->tree_node = treenode;
         node->solution = new double[decisions];
-        node->subgradient = new double[decisions];
+        if(treenode.GetStage() > 1) {
+            unsigned int prev_decisions = model_->GetDecisionSize(treenode.GetStage() - 1);
+            node->subgradient = new double[prev_decisions];
+        }
+        else
+            node->subgradient = NULL;
         node->dimension = decisions;
         node->parent = 0; //explicit initialization
         if (treenode.GetStage() != model_->GetStagesCount()) {

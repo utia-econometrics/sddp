@@ -13,6 +13,8 @@ set( CPLEX_VER "1263" )
 
 set(CMAKE_CXX_FLAGS_DEBUG "-D_DEBUG")
 
+set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -lmcheck -pedantic")
+
 #COIN-OR headers, put your directory
 include_directories(source ${COIN_HEADER_DIR} )
 
