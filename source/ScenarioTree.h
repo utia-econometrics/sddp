@@ -113,7 +113,7 @@ public:
 	TreeNode operator() (unsigned int stage, unsigned int state, SCENINDEX index) const;
 	unsigned int GetStage(SCENINDEX index) const;
 	unsigned int GetState(SCENINDEX index) const;
-	double * GetValues(SCENINDEX index) const;
+	const double * GetValues(SCENINDEX index) const;
 	double GetProbability(SCENINDEX index) const;
 	unsigned int GetDescendantsCount(SCENINDEX index) const;
 	TreeNode GetParent(SCENINDEX index) const;
@@ -146,10 +146,10 @@ protected:
 	vector<mat> transition_probabilities_; //transition probabilities between states for each stage
 
 	//samples to help independent sampling
-	mat *samples_;
+	vector<mat> samples_;
 
 	//samples to help independent sampling
-	colvec *probabilities_;
+	vector<colvec> probabilities_;
 
 	//number of elements in each node, by stages
 	vector<unsigned int> stage_node_size_;

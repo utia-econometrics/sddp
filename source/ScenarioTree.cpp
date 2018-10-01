@@ -191,9 +191,6 @@ void ScenarioTree::Init(unsigned int stages, vector<unsigned int> state_counts,
 	transition_probabilities_ = transition_probabilities;
 	evaluate_ = evaluate;
 
-	samples_ = 0;
-	probabilities_ = 0;
-
 #ifdef _DEBUG
 	//ensure data are all right
 	if (stage_samples_.size() != stages_) {
@@ -245,9 +242,6 @@ void ScenarioTree::Init(unsigned int stages, vector<unsigned int> state_counts,
 
 ScenarioTree::~ScenarioTree(void)
 {
-	if(samples_ != 0 || probabilities_ != 0) {
-		DestroyTree();
-	}
 }
 
 SCENINDEX ScenarioTree::ScenarioCount() const {
@@ -361,7 +355,7 @@ unsigned int ScenarioTree::GetSampleIndex(SCENINDEX index) const {
 	return real_idx;
 }
 
-double * ScenarioTree::GetValues(SCENINDEX index) const {
+const double * ScenarioTree::GetValues(SCENINDEX index) const {
 	unsigned int distr_idx = GetDistributionIndex(index);
 	unsigned int sampl_idx = GetSampleIndex(index);
 	return samples_[distr_idx].colptr(sampl_idx);
@@ -479,35 +473,28 @@ ScenarioTreeStateConstIterator ScenarioTree::GetNextStatesEnd(SCENINDEX index) c
 
 
 void ScenarioTree::GenerateTree(void) {
-	if(samples_ != 0) {
-		DestroyTree();
-	}
 
 	//sample scenarios
 	unsigned int total_count = StateCount(stages_);
-	samples_ = new mat[total_count];
-	probabilities_ = new colvec[total_count];
+	samples_.clear();
+	probabilities_.clear();
 	for (unsigned int stage = 1; stage <= stages_; ++stage) {
 		for (unsigned int state = 1; state <= StateCountStage(stage); ++state) {
-			unsigned int index = GetDistributionIndex(stage, state);
-			stage_distributions_[stage - 1][state - 1]->GenerateAnalytic(samples_[index], DescendantCountStage(stage, state));
+			unsigned int count = DescendantCountStage(stage, state);
+			mat sample_tmp(count, GetNodeSize(stage));
+			stage_distributions_[stage - 1][state - 1]->GenerateAnalytic(sample_tmp, count);
 			//needed to have colptr access
-			samples_[index] = trans(samples_[index]);
+			sample_tmp = sample_tmp.t();
 			if (evaluate_ != 0) {
 				for (unsigned int i = 0; i < DescendantCountStage(stage, state); ++i) {
-					evaluate_(samples_[index].colptr(i));
+					evaluate_(sample_tmp.colptr(i));
 				}
 			}
-			probabilities_[index].set_size(DescendantCountStage(stage, state));
-			probabilities_[index].fill(1.0 / DescendantCountStage(stage, state));
+			samples_.push_back(sample_tmp);
+			mat probabilities_tmp = ones(count);
+			probabilities_.push_back(probabilities_tmp / count);
 		}
 	}
-}
-
-void ScenarioTree::DestroyTree() {
-	//delete samples and their probabilities
-	delete[] samples_;
-	delete[] probabilities_;
 }
 
 TreeNode ScenarioTree::GetRoot() const {
@@ -524,7 +511,7 @@ bool ScenarioTree::HasParent(SCENINDEX index) const {
 
 TreeNode ScenarioTree::operator() (SCENINDEX index) const {
 #ifdef _DEBUG
-	if(samples_ == 0) {
+	if(samples_.size() == 0) {
 		throw ScenarioTreeException("Empty tree");
 	}
 	if(index < 0 || index >= ScenarioCount()) {
@@ -545,7 +532,7 @@ TreeNode ScenarioTree::operator() (unsigned int stage, SCENINDEX index) const {
 
 TreeNode ScenarioTree::operator() (unsigned int stage, unsigned int state, SCENINDEX index) const {
 #ifdef _DEBUG
-	if(samples_ == 0) {
+	if(samples_.size() == 0) {
 		throw ScenarioTreeException("Empty tree");
 	}
 	if(stage < 1 || stage > stages_) {

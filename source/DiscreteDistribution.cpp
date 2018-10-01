@@ -16,8 +16,6 @@ DiscreteDistribution::~DiscreteDistribution(void)
 void DiscreteDistribution::GenerateAnalytic(mat &sample, int count)
 {
 	//TODO: scenario generating according to 4 moments??
-	int dimension = sample_.n_cols;
-	sample.set_size(count, dimension);
 	int size = sample_.n_rows;
 
 	for(unsigned int i = 0; i < count; ++i) {

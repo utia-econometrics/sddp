@@ -11,7 +11,9 @@ RandomGenerator::RandomGenerator(RngStream *generator)
 
 RandomGenerator::~RandomGenerator(void)
 {
-	delete generator_;
+	if(generator_ != 0) {
+		delete generator_;
+	}
 }
 
 RandomGenerator* RandomGenerator::GetGenerator() {

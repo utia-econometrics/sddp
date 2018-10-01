@@ -21,7 +21,9 @@
     SddpSolver::~SddpSolver(void)
     {
         DestroySolverTree();
-        delete generator_;
+	if(generator_ != 0) {
+        	delete generator_;
+	}
     }
 
     void SddpSolver::DestroySolverTree() {
