@@ -2,18 +2,18 @@ cmake_minimum_required(VERSION 2.8.9)
 project(sddp)
 
 #config - directories
-set( CPLEX_HEADER_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/cplex/include" )
-set( CONCERT_HEADER_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/concert/include" )
-set( COIN_HEADER_DIR "/usr/local/lib/coin/build/include/coin" )
-set( CPLEX_LIB_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/cplex/lib/x86-64_linux/static_pic" )
-set( CPLEX_BIN_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/cplex/bin/x86-64_linux" )
-set( CONCERT_LIB_DIR "/opt/ibm/ILOG/CPLEX_Studio1263/concert/lib/x86-64_linux/static_pic" )
-set( COIN_LIB_DIR "/usr/local/lib/coin/build/lib" )
-set( CPLEX_VER "1263" )
+set( CPLEX_HEADER_DIR "/opt/ibm/ILOG/CPLEX_Studio127/cplex/include" )
+set( CONCERT_HEADER_DIR "/opt/ibm/ILOG/CPLEX_Studio127/concert/include" )
+set( COIN_HEADER_DIR "/home/vasek/Cbc-2.9/build/include/coin" )
+set( CPLEX_LIB_DIR "/opt/ibm/ILOG/CPLEX_Studio127/cplex/lib/x86-64_linux/static_pic" )
+set( CPLEX_BIN_DIR "/opt/ibm/ILOG/CPLEX_Studio127/cplex/bin/x86-64_linux" )
+set( CONCERT_LIB_DIR "/opt/ibm/ILOG/CPLEX_Studio127/concert/lib/x86-64_linux/static_pic" )
+set( COIN_LIB_DIR "/home/vasek/Cbc-2.9/build/lib" )
+set( CPLEX_VER "1270" )
 
 set(CMAKE_CXX_FLAGS_DEBUG "-D_DEBUG")
 
-set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -lmcheck -pedantic")
+#set(CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} -lmcheck -pedantic")
 
 #COIN-OR headers, put your directory
 include_directories(source ${COIN_HEADER_DIR} )

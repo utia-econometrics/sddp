@@ -22,7 +22,6 @@ NormalDistribution::~NormalDistribution(void)
 void NormalDistribution::GenerateAnalytic(mat &sample, int count)
 {
 	int dimension = mu_.n_elem;
-	sample.set_size(count, dimension);
 
 	//get the sigma decomposition
 	colvec eigval;
