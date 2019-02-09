@@ -192,6 +192,10 @@ struct SddpSolverConfig {
 	//enables output of the node values into a textfile
 	bool report_node_values = false;
 
+	//enables calculatetion of solutions for all stages (averaging)
+	bool calculate_future_solutions = false;
+	unsigned int calculate_future_solutions_count = 10000;
+
 	//Defines debugging of the forward pass - always selects all descendants (exponentially hard)
 	bool debug_forward = false;
 
@@ -222,6 +226,7 @@ public:
 
 	virtual void Solve(mat &weights, double &objective);
 	void Solve(mat &weights, double &lower_bound_exact, double &upper_bound_mean, double &upper_bound_bound);
+	void Solve(mat &weights, double &lower_bound_exact, double &upper_bound_mean, double &upper_bound_bound, vector<mat> &future_weights, vector<mat> &future_weights_sd);
 	virtual void GetStageSamples(vector<unsigned int> &stage_samples);
 	virtual void GetReducedSamples(vector<unsigned int> &stage_samples);
 
@@ -242,6 +247,7 @@ protected:
 	void AddCut(SddpSolverNode *node, unsigned int next_state);
 	void ForwardPassStandard(unsigned int count, vector<SCENINDEX> &nodes, bool solve = true);
 	void ForwardPassConditional(unsigned int count, vector<SCENINDEX> &nodes, bool solve = true);
+	void ForwardPassFixed(unsigned int count, vector<SCENINDEX> &nodes, bool solve = true);
 	void BackwardPass(const vector<SCENINDEX> &nodes);
 	SddpSolverNode *BuildNode(TreeNode treenode);
 	SddpSolverNode *BuildNode(SCENINDEX index);
@@ -257,6 +263,7 @@ protected:
 	void ConnectNode(SddpSolverNode *node, SddpSolverNode *parent);
 	double CalculateUpperBoundDefault(const vector<SCENINDEX> &nodes);
 	double CalculateUpperBoundConditional(const vector<SCENINDEX> &nodes);
+	void CalculateFutureWeights(const vector<SCENINDEX> &nodes, vector<mat> &future_weights, vector<mat> &future_weights_sd);
 	double GetNodeProbability(SddpSolverNode *node);
 	double GetConditionalProbability(SddpSolverNode *node);
 	double GetConditionalProbability(unsigned int stage);

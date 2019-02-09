@@ -69,6 +69,12 @@
     }
 
     void SddpSolver::Solve(arma::mat &weights, double &lower_bound_exact, double &upper_bound_mean, double &upper_bound_bound) {
+	vector<mat> dummy1;
+	vector<mat> dummy2;
+	Solve(weights, lower_bound_exact, upper_bound_mean, upper_bound_bound, dummy1, dummy2);
+    }
+	    
+    void SddpSolver::Solve(arma::mat &weights, double &lower_bound_exact, double &upper_bound_mean, double &upper_bound_bound, vector<mat> &future_weights, vector<mat> &future_weights_sd) {
         //scenario tree is needed
         BuildSolverTree();
 
@@ -279,6 +285,11 @@
         lower_bound_exact = node->objective;
         upper_bound_mean = ub_mean;
         upper_bound_bound = ub_margin;
+
+        if (config_.calculate_future_solutions) {
+            ForwardPassFixed(config_.calculate_future_solutions_count, forward_nodes);
+    		CalculateFutureWeights(forward_nodes, future_weights, future_weights_sd);
+		}
 
         if (config_.debug_bound) {
             double sum = 0;
@@ -606,6 +617,54 @@
             }
             last_nodes = actual_nodes;
         }
+
+        for(unsigned int i = 0; i < last_nodes.size(); ++i) {
+            nodes.push_back(last_nodes[i]->tree_node.GetIndex());
+        }
+    }
+
+    void SddpSolver::ForwardPassFixed(unsigned int count, vector<SCENINDEX> &nodes, bool solve) {
+        nodes.clear();
+        unsigned int stages = model_->GetStagesCount();
+        vector<SddpSolverNode *> actual_nodes;
+        vector<SddpSolverNode *> last_nodes;
+
+        if(stages < 2) {
+            throw SddpSolverException("Need at least two stages for forward pass");
+        }
+
+        //root
+        SddpSolverNode *parent = BuildNode(0);
+        SolveNode(parent);
+        last_nodes.push_back(parent);
+
+        //sample stage 2 nodes with fixed count
+        for(unsigned int i = 0; i < count; ++i) {
+            unsigned int next_state = SampleState(parent);
+            SddpSolverNode *node = SampleNode(parent, next_state);
+            ConnectNode(node, parent);
+            if(solve) {
+                SolveNode(node);
+            }
+            actual_nodes.push_back(node);
+        }
+        last_nodes = actual_nodes;
+
+        //sample single paths for stage 3 and on
+        for(unsigned int stage = 3; stage <= stages; ++stage) {
+            actual_nodes.clear();
+            for(unsigned int i = 0; i < last_nodes.size(); ++i) {
+                SddpSolverNode *parent = last_nodes[i];
+                unsigned int next_state = SampleState(parent);
+                SddpSolverNode *node = SampleNode(parent, next_state);
+                ConnectNode(node, parent);
+                if(solve) {
+                    SolveNode(node);
+                }
+                actual_nodes.push_back(node);
+            }
+        }
+        last_nodes = actual_nodes;
 
         for(unsigned int i = 0; i < last_nodes.size(); ++i) {
             nodes.push_back(last_nodes[i]->tree_node.GetIndex());
@@ -1141,6 +1200,54 @@
         //clean up
         ClearNodeDescendants(node);
     }
+    
+	void SddpSolver::CalculateFutureWeights(const vector<SCENINDEX> &nodes, vector<mat> &future_weights, vector<mat> &future_weights_sd) { 
+
+		unsigned int stages = model_->GetStagesCount();
+		future_weights.clear();
+		future_weights.resize(stages);
+		future_weights_sd.clear();
+		future_weights_sd.resize(stages);
+
+		vector<SddpSolverNode *> parent_nodes;
+        vector<SddpSolverNode *> actual_nodes;	
+
+        //fill the last stage
+        for (unsigned int i = 0; i < nodes.size(); ++i) {
+            SddpSolverNode *node = BuildNode(nodes[i]);
+            actual_nodes.push_back(node);
+        }
+ 
+        //iterate to root
+        while (actual_nodes.size() > 0) {
+            parent_nodes.clear();
+
+			unsigned int count = actual_nodes.size();
+            SddpSolverNode *dummy = actual_nodes[0];
+			unsigned int dimension = dummy->dimension;
+			unsigned int stage = dummy->GetStage();
+			mat solutions(count, dimension);
+
+            for (unsigned int i = 0; i < actual_nodes.size(); ++i) {
+
+                SddpSolverNode *node = actual_nodes[i];
+				for(unsigned int j = 0; j < dimension; ++j) {
+                    solutions(i, j) = node->solution[j];
+				}
+
+                //add parent for the next iteration
+                if (node->parent != 0) {
+                	parent_nodes.push_back(node->parent);
+                }
+
+            }
+
+			future_weights[stage - 1] = mean(solutions);
+			future_weights_sd[stage - 1] = stddev(solutions);
+
+            actual_nodes = parent_nodes;
+        }
+	}
 
     double SddpSolver::CalculateUpperBoundDefault(const vector<SCENINDEX> &nodes) {
         vector<SddpSolverNode *> parent_nodes;

@@ -83,7 +83,7 @@ AssetAllocationModel* assetModel(string inputFile) {
 	return new AssetAllocationModel(STAGES, assets, param, data);
 }
 
-int main_(int argc, char *argv[], char *envp[]) {
+int main(int argc, char *argv[], char *envp[]) {
 	if (argc < 2) {
 		cout << "No model specified." << endl;
 		return -1;
@@ -141,6 +141,8 @@ int main_(int argc, char *argv[], char *envp[]) {
 		double ub_o_m;
 		double ub_o_b;
 		time_t time_o;
+        vector<mat> fut_sol;
+        vector<mat> fut_sol_sd;
 
 		time_o = time(NULL);
 
@@ -152,9 +154,11 @@ int main_(int argc, char *argv[], char *envp[]) {
 		// config.cut_nodes_not_tail = true;
 		//there are more settings, for instace:
 		//config.debug_solver = true;
+        config.calculate_future_solutions = true;
+        config.calculate_future_solutions_count = 1000;
 		SddpSolver solver(model, config);
 
-		solver.Solve(weights_o, lb_o, ub_o_m, ub_o_b);
+		solver.Solve(weights_o, lb_o, ub_o_m, ub_o_b, fut_sol, fut_sol_sd);
 		time_o = time(NULL) - time_o;
 
 		vec_weights_o.push_back(weights_o);
@@ -166,6 +170,12 @@ int main_(int argc, char *argv[], char *envp[]) {
 		//printout
 		output_file << "Original problem: " << weights_o << endl;
 		output_file << "Original problem @ " << time_o << "s, lb: " << lb_o << ", ub_mean:" << ub_o_m << ", ub_bound:" << ub_o_b << endl;
+
+        for(unsigned int stage = 1; stage <= STAGES; ++stage) {
+            cout << "Stage " << stage << " solution:" << endl;
+            cout << fut_sol[stage - 1] << endl;
+            cout << fut_sol_sd[stage - 1] << endl;
+        }
 	}
 
 	output_file.close();
