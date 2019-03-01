@@ -209,7 +209,7 @@ struct SddpSolverConfig {
 	*/
 	bool debug_bound = false;
 	//how many upper bounds to comute
-	unsigned int debug_bound_count = 100;
+        unsigned int debug_bound_count = 100;
 	//how many nodes to include in each iteration
 	unsigned int debug_bound_nodes = 10000;
 
@@ -226,7 +226,7 @@ public:
 
 	virtual void Solve(mat &weights, double &objective);
 	void Solve(mat &weights, double &lower_bound_exact, double &upper_bound_mean, double &upper_bound_bound);
-	void Solve(mat &weights, double &lower_bound_exact, double &upper_bound_mean, double &upper_bound_bound, vector<mat> &future_weights, vector<mat> &future_weights_sd);
+        void Solve(mat &weights, double &lower_bound_exact, double &upper_bound_mean, double &upper_bound_bound, vector<mat> &future_weights);
 	virtual void GetStageSamples(vector<unsigned int> &stage_samples);
 	virtual void GetReducedSamples(vector<unsigned int> &stage_samples);
 
@@ -263,7 +263,7 @@ protected:
 	void ConnectNode(SddpSolverNode *node, SddpSolverNode *parent);
 	double CalculateUpperBoundDefault(const vector<SCENINDEX> &nodes);
 	double CalculateUpperBoundConditional(const vector<SCENINDEX> &nodes);
-	void CalculateFutureWeights(const vector<SCENINDEX> &nodes, vector<mat> &future_weights, vector<mat> &future_weights_sd);
+        void CalculateFutureWeights(const vector<SCENINDEX> &nodes, vector<mat> &future_weights);
 	double GetNodeProbability(SddpSolverNode *node);
 	double GetConditionalProbability(SddpSolverNode *node);
 	double GetConditionalProbability(unsigned int stage);

@@ -83,7 +83,7 @@ AssetAllocationModel* assetModel(string inputFile) {
 	return new AssetAllocationModel(STAGES, assets, param, data);
 }
 
-int main(int argc, char *argv[], char *envp[]) {
+int main_(int argc, char *argv[], char *envp[]) {
 	if (argc < 2) {
 		cout << "No model specified." << endl;
 		return -1;
@@ -142,7 +142,6 @@ int main(int argc, char *argv[], char *envp[]) {
 		double ub_o_b;
 		time_t time_o;
         vector<mat> fut_sol;
-        vector<mat> fut_sol_sd;
 
 		time_o = time(NULL);
 
@@ -158,7 +157,7 @@ int main(int argc, char *argv[], char *envp[]) {
         config.calculate_future_solutions_count = 1000;
 		SddpSolver solver(model, config);
 
-		solver.Solve(weights_o, lb_o, ub_o_m, ub_o_b, fut_sol, fut_sol_sd);
+        solver.Solve(weights_o, lb_o, ub_o_m, ub_o_b, fut_sol);
 		time_o = time(NULL) - time_o;
 
 		vec_weights_o.push_back(weights_o);
@@ -173,8 +172,8 @@ int main(int argc, char *argv[], char *envp[]) {
 
         for(unsigned int stage = 1; stage <= STAGES; ++stage) {
             cout << "Stage " << stage << " solution:" << endl;
-            cout << fut_sol[stage - 1] << endl;
-            cout << fut_sol_sd[stage - 1] << endl;
+            cout << mean(fut_sol[stage - 1]) << endl;
+            cout << stddev(fut_sol[stage - 1]) << endl;
         }
 	}
 
