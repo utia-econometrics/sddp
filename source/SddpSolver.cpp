@@ -70,11 +70,10 @@
 
     void SddpSolver::Solve(arma::mat &weights, double &lower_bound_exact, double &upper_bound_mean, double &upper_bound_bound) {
 	vector<mat> dummy1;
-	vector<mat> dummy2;
-	Solve(weights, lower_bound_exact, upper_bound_mean, upper_bound_bound, dummy1, dummy2);
+    Solve(weights, lower_bound_exact, upper_bound_mean, upper_bound_bound, dummy1);
     }
 	    
-    void SddpSolver::Solve(arma::mat &weights, double &lower_bound_exact, double &upper_bound_mean, double &upper_bound_bound, vector<mat> &future_weights, vector<mat> &future_weights_sd) {
+    void SddpSolver::Solve(arma::mat &weights, double &lower_bound_exact, double &upper_bound_mean, double &upper_bound_bound, vector<mat> &future_weights) {
         //scenario tree is needed
         BuildSolverTree();
 
@@ -288,7 +287,7 @@
 
         if (config_.calculate_future_solutions) {
             ForwardPassFixed(config_.calculate_future_solutions_count, forward_nodes);
-    		CalculateFutureWeights(forward_nodes, future_weights, future_weights_sd);
+            CalculateFutureWeights(forward_nodes, future_weights);
 		}
 
         if (config_.debug_bound) {
@@ -663,9 +662,9 @@
                 }
                 actual_nodes.push_back(node);
             }
-        }
-        last_nodes = actual_nodes;
 
+            last_nodes = actual_nodes;
+        }
         for(unsigned int i = 0; i < last_nodes.size(); ++i) {
             nodes.push_back(last_nodes[i]->tree_node.GetIndex());
         }
@@ -1201,13 +1200,11 @@
         ClearNodeDescendants(node);
     }
     
-	void SddpSolver::CalculateFutureWeights(const vector<SCENINDEX> &nodes, vector<mat> &future_weights, vector<mat> &future_weights_sd) { 
+    void SddpSolver::CalculateFutureWeights(const vector<SCENINDEX> &nodes, vector<mat> &future_weights) {
 
 		unsigned int stages = model_->GetStagesCount();
 		future_weights.clear();
 		future_weights.resize(stages);
-		future_weights_sd.clear();
-		future_weights_sd.resize(stages);
 
 		vector<SddpSolverNode *> parent_nodes;
         vector<SddpSolverNode *> actual_nodes;	
@@ -1242,8 +1239,7 @@
 
             }
 
-			future_weights[stage - 1] = mean(solutions);
-			future_weights_sd[stage - 1] = stddev(solutions);
+            future_weights[stage - 1] = solutions;
 
             actual_nodes = parent_nodes;
         }
