@@ -230,7 +230,8 @@ public:
 	virtual void GetStageSamples(vector<unsigned int> &stage_samples);
 	virtual void GetReducedSamples(vector<unsigned int> &stage_samples);
 
-	void EvaluatePolicy(boost::function<vector<vector<double> >(vector<const double *>)> policy, double &return_mean, double &return_upper_bound, unsigned int iterations = 10);
+        void EvaluatePolicy(boost::function<vector<vector<double> >
+             (vector<const double *>)> policy, double &return_mean, double &return_variance, double &return_upper_bound, unsigned int iterations = 10);
 	vector<vector<double> > GetPolicy(vector<const double *> scenario);
 
 	SddpSolverNode *GetRoot();

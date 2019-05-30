@@ -329,7 +329,8 @@
         }
     }
 
-    void SddpSolver::EvaluatePolicy(boost::function<vector<vector<double> >(vector<const double *>)> policy, double &return_mean, double &return_upper_bound, unsigned int iterations) {
+    void SddpSolver::EvaluatePolicy(boost::function<vector<vector<double> >
+            (vector<const double *>)> policy, double &return_mean, double &return_variance, double &return_upper_bound, unsigned int iterations) {
         vector<double> upper_bounds;
         double upper_bound;
         vector<SCENINDEX> forward_nodes;
@@ -410,6 +411,7 @@
 
         return_mean = mean;
         return_upper_bound = margin;
+        return_variance = variance;
     }
 
     vector<vector<double> > SddpSolver::GetPolicy(vector<const double *> scenario) {
