@@ -116,7 +116,7 @@ struct SddpComparableNode {
 };
 
 //runtime exception
-class SddpSolverException : Exception
+class SddpSolverException : public Exception
 { 
 public:
 	SddpSolverException(string text) : Exception(text){

@@ -991,11 +991,11 @@
         //performance tuning
         cplex.setParam(IloCplex::PreDual, 1);
         cplex.setParam(IloCplex::RootAlg, IloCplex::Primal);
-//cplex.exportModel("modelfull.lp");
         //solve
         if (!cplex.solve()) {
-            cout << "No solution found!" << endl;
-            throw SddpSolverException("Solution not found");
+            cplex.exportModel("nosol.lp");
+            cout << "No solution found! Exported to nosol.lp" << endl;
+            throw SddpSolverException("Solution not found. Exported to nosol.lp");
         }
 
         //solutions
