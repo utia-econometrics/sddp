@@ -331,6 +331,9 @@
 
     void SddpSolver::EvaluatePolicy(boost::function<vector<vector<double> >
             (vector<const double *>)> policy, double &return_mean, double &return_variance, double &return_upper_bound, unsigned int iterations) {
+        //scenario tree is needed
+        BuildSolverTree();
+
         vector<double> upper_bounds;
         double upper_bound;
         vector<SCENINDEX> forward_nodes;
@@ -419,7 +422,9 @@
         unsigned int stages = model_->GetStagesCount();
         vector<Distribution *> distributions;
         for(unsigned int stage = 1; stage <= stages; ++stage) {
-            mat stage_scen(scenario[stage - 1], 1, tree_->GetNodeSize(stage));
+            unsigned int nodesize = tree_->GetNodeSize(stage);
+            mat stage_scen(scenario[stage - 1], 1, nodesize);
+            cout << stage_scen << endl;
             distributions.push_back(new DiscreteDistribution(stage_scen));
         }
         vector<unsigned int> stage_samples;
