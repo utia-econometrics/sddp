@@ -60,8 +60,16 @@ colvec AssetAllocationModel::GetMu() const {
 	return mu_;
 }
 
+void AssetAllocationModel::SetMu(colvec mu) {
+    mu_ = mu;
+}
+
 mat AssetAllocationModel::GetSigma() const {
 	return sigma_;
+}
+
+void AssetAllocationModel::SetSigma(mat sigma) {
+    sigma_ = sigma;
 }
 
 Distribution* AssetAllocationModel::GetDistribution(unsigned int stage, unsigned int state) const {

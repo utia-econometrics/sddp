@@ -17,7 +17,7 @@ using namespace boost;
 const unsigned int STAGES = 3;
 const unsigned int ITERATIONS = 1;
 const unsigned int SEED = 350916502;
-const unsigned int DESCENDANTS = 100; //100
+const unsigned int DESCENDANTS = 10; //100
 const unsigned int REDUCED_DESCENDANTS = 0; //0 == no reduction
 const unsigned int DERIVATIVE_ITERATIONS = 10;
 
@@ -83,7 +83,7 @@ AssetAllocationModel* assetModel(string inputFile) {
 	return new AssetAllocationModel(STAGES, assets, param, data);
 }
 
-int main_(int argc, char *argv[], char *envp[]) {
+int main(int argc, char *argv[], char *envp[]) {
 	if (argc < 2) {
 		cout << "No model specified." << endl;
 		return -1;
@@ -116,12 +116,45 @@ int main_(int argc, char *argv[], char *envp[]) {
 		return -3;
 	}
 
+    //for contamination
+    AssetAllocationModel *model_cont = assetModel(filename);
+    model_cont->SetSigma(model_cont->GetSigma() * 1.2); //20% more variance
+
+    //configure the SddpSolver
+    SddpSolverConfig config;
+    config.samples_per_stage = DESCENDANTS;
+    config.reduced_samples_per_stage = REDUCED_DESCENDANTS;
+    config.solver_strategy = STRATEGY_DEFAULT; // STRATEGY_CONDITIONAL
+    // config.cut_nodes_not_tail = true;
+    //there are more settings, for instace:
+    //config.debug_solver = true;
+    config.calculate_future_solutions = true;
+    config.calculate_future_solutions_count = 1000;
+
+
 	//vectors for collecting stats and printout
 	vector<rowvec> vec_weights_o;
 	vector<double> vec_lb_o;
 	vector<double> vec_ub_o_m;
 	vector<double> vec_ub_o_b;
 	vector<time_t> vec_time_o;
+
+    //contamination
+    vector<rowvec> vec_weights_c;
+    vector<double> vec_lb_c;
+    vector<double> vec_ub_c_m;
+    vector<double> vec_ub_c_b;
+    vector<time_t> vec_time_c;
+
+    vector<double> vec_der_c_mean;
+    vector<double> vec_der_c_bound;
+    vector<time_t> vec_time_der;
+
+    rowvec weights_c;
+    double lb_c;
+    double ub_c_m;
+    double ub_c_b;
+    time_t time_c;
 
 	filesystem::ofstream output_file;
 	output_file.open("output.txt", ios_base::in);
@@ -145,16 +178,6 @@ int main_(int argc, char *argv[], char *envp[]) {
 
 		time_o = time(NULL);
 
-		//configure the SddpSolver
-		SddpSolverConfig config;
-		config.samples_per_stage = DESCENDANTS;
-		config.reduced_samples_per_stage = REDUCED_DESCENDANTS;
-		config.solver_strategy = STRATEGY_DEFAULT; // STRATEGY_CONDITIONAL
-		// config.cut_nodes_not_tail = true;
-		//there are more settings, for instace:
-		//config.debug_solver = true;
-        config.calculate_future_solutions = true;
-        config.calculate_future_solutions_count = 1000;
 		SddpSolver solver(model, config);
 
         solver.Solve(weights_o, lb_o, ub_o_m, ub_o_b, fut_sol);
@@ -175,6 +198,32 @@ int main_(int argc, char *argv[], char *envp[]) {
             cout << mean(fut_sol[stage - 1]) << endl;
             cout << stddev(fut_sol[stage - 1]) << endl;
         }
+
+        time_c = time(NULL);
+	    SddpSolver solver_cont(model_cont, config);
+
+        solver_cont.Solve(weights_c, lb_c, ub_c_m, ub_c_b);
+        time_c = time(NULL) - time_c;
+
+        vec_weights_c.push_back(weights_c);
+        vec_lb_c.push_back(lb_c);
+        vec_ub_c_m.push_back(ub_c_m);
+        vec_ub_c_b.push_back(ub_c_b);
+        vec_time_c.push_back(time_c);
+
+        //contamination bounds
+        double der_c_mean;
+        double der_c_variance;
+        double der_c_bound;
+        time_t time_der;
+        time_der = time(NULL);
+        boost::function<vector<vector<double>>(vector<const double *>, vector<unsigned int>)> policy = boost::bind(&SddpSolver::GetPolicy, &solver, _1, _2);
+        solver_cont.EvaluatePolicy(policy, der_c_mean, der_c_variance, der_c_bound, DERIVATIVE_ITERATIONS);
+        time_der = time(NULL) - time_der;
+
+        vec_der_c_mean.push_back(der_c_mean);
+        vec_der_c_bound.push_back(der_c_bound);
+        vec_time_der.push_back(time_der);
 	}
 
 	output_file.close();
@@ -185,9 +234,21 @@ int main_(int argc, char *argv[], char *envp[]) {
 	for (unsigned int i = 0; i < ITERATIONS; ++i) {
 		cout << "Original problem @ " << vec_time_o[i] << "s, lb: " << vec_lb_o[i] << ", ub_mean:" << vec_ub_o_m[i] << ", ub_bound:" << vec_ub_o_b[i] << endl;
 	}
+    
+    for (unsigned int i = 0; i < ITERATIONS; ++i) {
+        cout << "Perturbed problem: " << vec_weights_c[i] << endl;
+    }
+
+    for (unsigned int i = 0; i < ITERATIONS; ++i) {
+        cout << "Perturbed problem @ " << vec_time_c[i] << "s, lb: " << vec_lb_c[i] << ", ub_mean:" << vec_ub_c_m[i] << ", ub_bound:" << vec_ub_c_b[i] << endl;
+    }
+    for (unsigned int i = 0; i < ITERATIONS; ++i) {
+        cout << "Contamination bound @ " << vec_time_der[i] << "s, mean:" << vec_der_c_mean[i] << ", bound:" << vec_der_c_bound[i] << endl;
+    }
 
 	//clean up
 	delete model;
+	delete model_cont;
 
 	//even when debugging do not end
 	char c;
@@ -196,67 +257,8 @@ int main_(int argc, char *argv[], char *envp[]) {
 	return 0;
 }
 
+
 /* obsolete parts of code, needs to be revisited
-
-//contamination
-
-vector<rowvec> vec_weights_c;
-vector<double> vec_lb_c
-vector<double> vec_ub_c_m;
-vector<double> vec_ub_c_b;
-vector<time_t> vec_time_c;
-
-vector<double> vec_der_c_mean;
-vector<double> vec_der_c_bound;
-vector<time_t> vec_time_der;
-
-//contamination
-rowvec weights_c;
-double lb_c;
-double ub_c_m;
-double ub_c_b;
-time_t time_c;
-
-time_c = time(NULL);
-colvec mu = model.GetMu();
-mat sigma = model.GetSigma();
-sigma *= 1.2; //20% more variance
-GeometricBrownianMotion model_cont(STAGES, assets, param, mu, sigma);
-SddpSolver solver_cont(&model_cont, DESCENDANTS);
-
-solver_cont.Solve(weights_c, lb_c, ub_c_m, ub_c_b);
-time_c = time(NULL) - time_c;
-
-vec_weights_c.push_back(weights_c);
-vec_lb_c.push_back(lb_c);
-vec_ub_c_m.push_back(ub_c_m);
-vec_ub_c_b.push_back(ub_c_b);
-vec_time_c.push_back(time_c);
-
-//contamination bounds
-double der_c_mean;
-double der_c_bound;
-time_t time_der;
-time_der = time(NULL);
-boost::function<vector<vector<double>>(vector<const double *>)> policy = boost::bind(&SddpSolver::GetPolicy, &solver, _1);
-solver_cont.EvaluatePolicy(policy, der_c_mean, der_c_bound, DERIVATIVE_ITERATIONS);
-time_der = time(NULL) - time_der;
-
-vec_der_c_mean.push_back(der_c_mean);
-vec_der_c_bound.push_back(der_c_bound);
-vec_time_der.push_back(time_der);
-
-for (unsigned int i = 0; i < ITERATIONS; ++i) {
-cout << "Perturbed problem: " << vec_weights_c[i] << endl;
-}
-
-for (unsigned int i = 0; i < ITERATIONS; ++i) {
-cout << "Perturbed problem @ " << vec_time_c[i] << "s, lb: " << vec_lb_c[i] << ", ub_mean:" << vec_ub_c_m[i] << ", ub_bound:" << vec_ub_c_b[i] << endl;
-}
-for (unsigned int i = 0; i < ITERATIONS; ++i) {
-cout << "Contamination bound @ " << vec_time_der[i] << "s, mean:" << vec_der_c_mean[i] << ", bound:" << vec_der_c_bound[i] << endl;
-}
-
 //variance
 void variance() {
 	int iteration = 0;

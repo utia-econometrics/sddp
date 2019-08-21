@@ -95,3 +95,7 @@ double NormalDistribution::SampleJarqueBera() {
 DistributionType NormalDistribution::GetType() const {
 	return DISTRIBUTION_NORMAL;
 }
+
+unsigned int NormalDistribution::GetDimension() const {
+    return mu_.n_rows;
+}

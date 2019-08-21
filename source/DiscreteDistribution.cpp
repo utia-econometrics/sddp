@@ -56,3 +56,7 @@ double DiscreteDistribution::InverseDistributionFunction(double y) const {
 DistributionType DiscreteDistribution::GetType() const {
 	return DISTRIBUTION_DISCRETE;
 }
+
+unsigned int DiscreteDistribution::GetDimension() const {
+    return sample_.n_cols;
+}

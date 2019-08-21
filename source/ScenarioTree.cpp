@@ -228,15 +228,18 @@ void ScenarioTree::Init(unsigned int stages, vector<unsigned int> state_counts,
 
 	//fill out node sizes from distributions
 	for (unsigned int stage = 1; stage <= stages; ++stage) {
-		unsigned int size = stage_distributions_[stage - 1][0]->GetDimension(); //first size == default
-		stage_node_size_.push_back(size);
+		unsigned int size = 0;
+		for (unsigned int idx = 0; idx < stage_distributions_[stage - 1].size(); ++idx) {
+            if (stage_samples_[stage - 1][idx] > 0) { //use only initialized distributions with some count
 #ifdef _DEBUG
-		for (unsigned int idx = 1; idx < stage_distributions_[stage - 1].size(); ++idx) { //start from second member of array
-			if (stage_distributions_[stage - 1][idx]->GetDimension() != size) {
-				throw ScenarioTreeException("Dimension of random vectors for different states in one stage do not match");
-			}
-		}
+                if (size > 0 && stage_distributions_[stage - 1][idx]->GetDimension() != size) {
+				    throw ScenarioTreeException("Dimension of random vectors for different states in one stage do not match");
+			    }
 #endif
+                size = stage_distributions_[stage - 1][idx]->GetDimension();
+            }
+		}
+		stage_node_size_.push_back(size);
 	}
 }
 
@@ -482,17 +485,20 @@ void ScenarioTree::GenerateTree(void) {
 		for (unsigned int state = 1; state <= StateCountStage(stage); ++state) {
 			unsigned int count = DescendantCountStage(stage, state);
 			mat sample_tmp(count, GetNodeSize(stage));
-			stage_distributions_[stage - 1][state - 1]->GenerateAnalytic(sample_tmp, count);
-			//needed to have colptr access
-			sample_tmp = sample_tmp.t();
-			if (evaluate_ != 0) {
-				for (unsigned int i = 0; i < DescendantCountStage(stage, state); ++i) {
-					evaluate_(sample_tmp.colptr(i));
-				}
-			}
-			samples_.push_back(sample_tmp);
 			mat probabilities_tmp = ones(count);
-			probabilities_.push_back(probabilities_tmp / count);
+            if(count > 0) { //some states can be empty for simulation of forward paths
+			    stage_distributions_[stage - 1][state - 1]->GenerateAnalytic(sample_tmp, count);
+			    //needed to have colptr access
+			    sample_tmp = sample_tmp.t();
+			    if (evaluate_ != 0) {
+				    for (unsigned int i = 0; i < DescendantCountStage(stage, state); ++i) {
+					    evaluate_(sample_tmp.colptr(i));
+				    }
+			    }
+                probabilities_tmp /= count; //equi probable scenarios
+            }
+			samples_.push_back(sample_tmp);
+			probabilities_.push_back(probabilities_tmp);
 		}
 	}
 }

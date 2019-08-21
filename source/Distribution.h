@@ -58,7 +58,10 @@ public:
 	virtual double DistributionFunction(double x) const = 0;
 	virtual double InverseDistributionFunction(double y) const = 0;
 
-	//getters
+    //Dimension of the data
+	virtual unsigned int GetDimension() const = 0;
+	
+    //getters
 	colvec GetMu() const {
 		return mu_;
 	}
@@ -67,9 +70,6 @@ public:
 		return sigma_;
 	}
 
-	unsigned int GetDimension() const {
-		return mu_.n_rows;
-	}
 
 protected:
 	///distirbution parameters

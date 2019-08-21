@@ -14,6 +14,7 @@ public:
 	virtual double InverseDistributionFunction(double y) const;
 	double SampleJarqueBera();
 	virtual DistributionType GetType() const;
+	virtual unsigned int GetDimension() const;
 
 protected:
 	double GenerateStandardized();

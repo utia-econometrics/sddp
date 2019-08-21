@@ -55,7 +55,9 @@ public:
 
 
 	colvec GetMu() const;
+	void SetMu(colvec mu);
 	mat GetSigma() const;
+    void SetSigma(mat sigma);
 
 	vector<string> GetAssets() const {
 		return assets_;

@@ -329,8 +329,8 @@
         }
     }
 
-    void SddpSolver::EvaluatePolicy(boost::function<vector<vector<double> >
-            (vector<const double *>)> policy, double &return_mean, double &return_variance, double &return_upper_bound, unsigned int iterations) {
+    void SddpSolver::EvaluatePolicy(boost::function<vector<vector<double> > (vector<const double *>, vector<unsigned int>)> policy, 
+        double &return_mean, double &return_variance, double &return_upper_bound, unsigned int iterations) {
         //scenario tree is needed
         BuildSolverTree();
 
@@ -341,7 +341,8 @@
         if (config_.debug_bound) {
             fw_count = config_.debug_bound_nodes;
         }
-        for(unsigned int i = 0; i < iterations; ++i){
+        for(unsigned int iteration = 0; iteration < iterations; ++iteration) {
+            cout << "Evaluate policy iteration " << iteration << endl;
             //choose the nodes
             if(config_.solver_strategy == STRATEGY_DEFAULT) {
                 ForwardPassStandard(fw_count, forward_nodes);
@@ -357,17 +358,20 @@
             for(unsigned int i = 0; i < forward_nodes.size(); ++i) {
                 SddpSolverNode *base_node = BuildNode(forward_nodes[i]);
                 vector<const double *> scenario;
+                vector<unsigned int> states;
                 scenario.resize(model_->GetStagesCount());
+                states.resize(model_->GetStagesCount());
                 unsigned int index = model_->GetStagesCount() - 1;
                 SddpSolverNode *node = base_node;
                 while(node != 0) {
                     TreeNode tree_node = node->tree_node;
                     const double *values = tree_node.GetValues();
                     scenario[index] = values;
+                    states[index] = tree_node.GetState();
                     --index;
                     node = node->parent;
                 }
-                vector<vector<double> > solutions = policy(scenario);
+                vector<vector<double> > solutions = policy(scenario, states);
                 node = base_node;
                 index = model_->GetStagesCount() - 1;
                 while(node != 0) {
@@ -417,31 +421,53 @@
         return_variance = variance;
     }
 
-    vector<vector<double> > SddpSolver::GetPolicy(vector<const double *> scenario) {
-        //build a single path tree
-        unsigned int stages = model_->GetStagesCount();
-        vector<Distribution *> distributions;
-        for(unsigned int stage = 1; stage <= stages; ++stage) {
-            unsigned int nodesize = tree_->GetNodeSize(stage);
-            mat stage_scen(scenario[stage - 1], 1, nodesize);
-            cout << stage_scen << endl;
-            distributions.push_back(new DiscreteDistribution(stage_scen));
-        }
-        vector<unsigned int> stage_samples;
-        for(unsigned int stage = 1; stage <= stages; ++stage) {
-            stage_samples.push_back(1); //fixed one exact scenario
-        }
-        ScenarioTree *tree = new ScenarioTree(stages, stage_samples, STAGE_INDEPENDENT, distributions, 0);
-        tree->GenerateTree();
+    vector<vector<double> > SddpSolver::GetPolicy(vector<const double *> scenario, vector<unsigned int> states) {
+        //build a single path tree - TODO: ugly code copy, generalize into ScenarioModel
+		vector<vector<Distribution *> > distributions;
+		vector<unsigned int> state_counts;
+		vector<mat> transition_probabilities;
+		vector<vector<unsigned int> > all_stage_samples;
+		for (unsigned int stage = 1; stage <= model_->GetStagesCount(); ++stage) {
+			unsigned int stat_cnt = model_->GetStatesCountStage(stage);
+			state_counts.push_back(stat_cnt);
+			vector<Distribution*> one_stage_distr;
+			vector<unsigned int> one_stage_samples;
+			for (unsigned int state = 1; state <= stat_cnt; ++state) {
+                if(state == states[stage - 1]) {
+                    unsigned int nodesize = tree_->GetNodeSize(stage);
+                    mat stage_scen(scenario[stage - 1], 1, nodesize);
+				    one_stage_distr.push_back(new DiscreteDistribution(stage_scen));
+				    one_stage_samples.push_back(1);
+                }
+                else {
+                    one_stage_distr.push_back(0);
+				    one_stage_samples.push_back(0);
+                }
+			}
+			distributions.push_back(one_stage_distr);
+			all_stage_samples.push_back(one_stage_samples);
+		}
+
+		for (unsigned int stage = 1; stage < model_->GetStagesCount(); ++stage) { //not done for last stage, no transition from it
+			transition_probabilities.push_back(model_->GetTransitionProbabilities(stage));
+		}
+
+		//get the tree
+		ScenarioTree *tree = new ScenarioTree(model_->GetStagesCount(), state_counts, all_stage_samples, model_->GetStageDependence(), distributions, transition_probabilities, 0);
+		tree->GenerateTree();
 
         //clean the distributions
         for(unsigned int i = 0; i < distributions.size(); ++i) {
-            delete distributions[i];
+            for(unsigned int j = 0; j < distributions[i].size(); ++j) {
+                if(distributions[i][j] != 0) {
+                    delete distributions[i][j];
+                }
+            }
         }
 
         //build a solver node structures
         vector<SddpSolverNode *> nodes;
-        for(unsigned int index = 0; index < stages; ++index) {
+        for(unsigned int index = 0; index < model_->GetStagesCount(); ++index) {
             //TODO: ugly code copy
             SddpSolverNode *node = new SddpSolverNode();
             TreeNode treenode = (*tree)(index);

@@ -12,4 +12,5 @@ public:
 	virtual double DistributionFunction(double x) const;
 	virtual double InverseDistributionFunction(double y) const;
 	virtual DistributionType GetType() const;
+	virtual unsigned int GetDimension() const;
 };
