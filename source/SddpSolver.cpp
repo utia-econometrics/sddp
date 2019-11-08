@@ -330,7 +330,8 @@
     }
 
     void SddpSolver::EvaluatePolicy(boost::function<vector<vector<double> > (vector<const double *>, vector<unsigned int>)> policy, 
-        double &return_mean, double &return_variance, double &return_upper_bound, unsigned int iterations) {
+        double &return_mean, double &return_variance, double &return_upper_bound, unsigned int iterations,
+         const StateConverter* converter) {
         //scenario tree is needed
         BuildSolverTree();
 
@@ -367,7 +368,9 @@
                     TreeNode tree_node = node->tree_node;
                     const double *values = tree_node.GetValues();
                     scenario[index] = values;
-                    states[index] = tree_node.GetState();
+                    states[index] = (converter && index>0)
+                       ? converter->GetCorrespondingState(index+1,tree_node.GetState(),values)
+                       : tree_node.GetState();
                     --index;
                     node = node->parent;
                 }
@@ -403,7 +406,7 @@
         double variance = 0.0;
         double mean = 0.0;
         for(unsigned int i = 0; i < iterations; ++i) {
-            mean += upper_bounds[i];
+        mean += upper_bounds[i];
         }
         mean /= iterations;
         for(unsigned int i = 0; i < iterations; ++i) {

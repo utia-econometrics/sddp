@@ -15,6 +15,15 @@ public:
 	}
 };
 
+/// relies on the markov variable to be the first in the array foreignValues;
+class StateConverter
+{
+public:
+    // returns a state, corresponding to foreign radnom parameters
+    virtual unsigned int GetCorrespondingState
+       (unsigned int stage, unsigned int foreignState, const double* foreignValues) const = 0;
+};
+
 class ScenarioModel
 {
 public:
@@ -39,6 +48,7 @@ public:
 
 	//return the stage dependence in this model, default is stage independent
 	virtual StageDependence GetStageDependence() const;
+
 
 	//generates the scenario sampled tree
 	virtual ScenarioTree* GetScenarioTree(vector<unsigned int> stage_samples) const;
