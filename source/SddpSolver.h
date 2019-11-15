@@ -219,7 +219,9 @@ struct SddpSolverConfig {
 
 struct EvaluatePolicyProtocol
 {
-    EvaluatePolicyProtocol(const vector<unsigned int>& adims) : dims(adims) {}
+    EvaluatePolicyProtocol(unsigned int dim0,
+      const vector<unsigned int>& adims) : fdim0(dim0), dims(adims) {}
+    const unsigned int fdim0;
     const vector<unsigned int> dims;
     vector<vector<vector<unsigned int>>> states;
     vector<vector<vector<vector<double>>>> scenarios;

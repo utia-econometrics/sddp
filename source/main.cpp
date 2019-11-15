@@ -83,7 +83,7 @@ AssetAllocationModel* assetModel(string inputFile) {
 	return new AssetAllocationModel(STAGES, assets, param, data);
 }
 
-int _main(int argc, char *argv[], char *envp[]) {
+int main(int argc, char *argv[], char *envp[]) {
 	if (argc < 2) {
 		cout << "No model specified." << endl;
 		return -1;

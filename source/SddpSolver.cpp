@@ -395,8 +395,11 @@ report << tree_node.GetState() << ", "
                     vector<vector<double>> sc(scenario.size());
 //cerr << endl << endl;;
                     for(unsigned int i=0; i<scenario.size(); i++)
-                       for(unsigned int j=0; j<protocol->dims[i]; j++)
+                    {
+                       unsigned int dim = i ? protocol->dims[i-1] : protocol->fdim0;
+                        for(unsigned int j=0; j<dim; j++)
                            sc[i].push_back(scenario[i][j]);
+                    }
                     protocol->scenarios[iteration].push_back(sc);
                 }
                 node = base_node;
