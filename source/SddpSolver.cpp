@@ -329,10 +329,19 @@
         }
     }
 
-    void SddpSolver::EvaluatePolicy(boost::function<vector<vector<double> > (vector<const double *>, vector<unsigned int>)> policy, 
+ofstream report("report.csv");
+
+    void SddpSolver::EvaluatePolicy(boost::function<vector<vector<double> > (vector<const double *>, vector<unsigned int>)> policy,
         double &return_mean, double &return_variance, double &return_upper_bound, unsigned int iterations,
-         const StateConverter* converter) {
+         const StateConverter* converter, EvaluatePolicyProtocol* protocol) {
         //scenario tree is needed
+        if(protocol)
+        {
+            protocol->bounds.resize(iterations);
+            protocol->states.resize(iterations);
+            protocol->scenarios.resize(iterations);
+            protocol->solutions.resize(iterations);
+        }
         BuildSolverTree();
 
         vector<double> upper_bounds;
@@ -354,8 +363,7 @@
             else {
                 throw SddpSolverException("Strategy undefined.");
             }
-
-            //get solutions
+            //get solutions            
             for(unsigned int i = 0; i < forward_nodes.size(); ++i) {
                 SddpSolverNode *base_node = BuildNode(forward_nodes[i]);
                 vector<const double *> scenario;
@@ -364,6 +372,7 @@
                 states.resize(model_->GetStagesCount());
                 unsigned int index = model_->GetStagesCount() - 1;
                 SddpSolverNode *node = base_node;
+report << endl <<  i << ",,";
                 while(node != 0) {
                     TreeNode tree_node = node->tree_node;
                     const double *values = tree_node.GetValues();
@@ -371,10 +380,25 @@
                     states[index] = (converter && index>0)
                        ? converter->GetCorrespondingState(index+1,tree_node.GetState(),values)
                        : tree_node.GetState();
+
+report << tree_node.GetState() << ", "
+                      << states[index] << ", " << *scenario[index] << ",,";
+
                     --index;
                     node = node->parent;
                 }
                 vector<vector<double> > solutions = policy(scenario, states);
+                if(protocol)
+                {
+                    protocol->solutions[iteration].push_back(solutions);
+                    protocol->states[iteration].push_back(states);
+                    vector<vector<double>> sc(scenario.size());
+//cerr << endl << endl;;
+                    for(unsigned int i=0; i<scenario.size(); i++)
+                       for(unsigned int j=0; j<protocol->dims[i]; j++)
+                           sc[i].push_back(scenario[i][j]);
+                    protocol->scenarios[iteration].push_back(sc);
+                }
                 node = base_node;
                 index = model_->GetStagesCount() - 1;
                 while(node != 0) {
@@ -400,13 +424,17 @@
             }
 
             upper_bounds.push_back(upper_bound);
+
+            if(protocol)
+                protocol->bounds[iteration] = upper_bound;
+
         }
 
         //stats and return
         double variance = 0.0;
         double mean = 0.0;
         for(unsigned int i = 0; i < iterations; ++i) {
-        mean += upper_bounds[i];
+            mean += upper_bounds[i];
         }
         mean /= iterations;
         for(unsigned int i = 0; i < iterations; ++i) {

@@ -217,6 +217,17 @@ struct SddpSolverConfig {
 	bool debug_solver = false;
 };
 
+struct EvaluatePolicyProtocol
+{
+    EvaluatePolicyProtocol(const vector<unsigned int>& adims) : dims(adims) {}
+    const vector<unsigned int> dims;
+    vector<vector<vector<unsigned int>>> states;
+    vector<vector<vector<vector<double>>>> scenarios;
+    vector<vector<vector<vector<double>>>> solutions;
+    vector<double> bounds;
+};
+
+
 class SddpSolver :
 	public Solver
 {
@@ -230,8 +241,10 @@ public:
 	virtual void GetStageSamples(vector<unsigned int> &stage_samples);
 	virtual void GetReducedSamples(vector<unsigned int> &stage_samples);
 
-        void EvaluatePolicy(boost::function<vector<vector<double> > (vector<const double *>, vector<unsigned int>)> policy
-        , double &return_mean, double &return_variance, double &return_upper_bound, unsigned int iterations = 10, const StateConverter* converter = 0);
+        void EvaluatePolicy(boost::function<vector<vector<double> > (vector<const double *>, vector<unsigned int>)> policy,
+                            double &return_mean, double &return_variance, double &return_upper_bound, unsigned int iterations = 10,
+                            const StateConverter* converter = 0,
+                            EvaluatePolicyProtocol* protocol = 0);
 	vector<vector<double> > GetPolicy(vector<const double *> scenario, vector<unsigned int> states);
 
 	SddpSolverNode *GetRoot();

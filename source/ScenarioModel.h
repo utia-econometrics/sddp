@@ -24,6 +24,7 @@ public:
        (unsigned int stage, unsigned int foreignState, const double* foreignValues) const = 0;
 };
 
+
 class ScenarioModel
 {
 public:

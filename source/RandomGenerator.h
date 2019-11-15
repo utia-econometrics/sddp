@@ -23,7 +23,7 @@ public:
 	SCENINDEX GetRandomHuge(SCENINDEX i, SCENINDEX j);
 	
 	static void SetSeed(int seed) {
-		seed_ = seed;
+            seed_ = seed;
 	}
 
 protected:
